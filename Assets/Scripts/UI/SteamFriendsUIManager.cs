@@ -71,6 +71,7 @@ namespace UpWeGo
             ClearFriendsList();
             
             int friendCount = SteamFriends.GetFriendCount(EFriendFlags.k_EFriendFlagImmediate);
+            Debug.Log($"Found {friendCount} Steam friends");
             
             for (int i = 0; i < friendCount; i++)
             {
@@ -78,27 +79,48 @@ namespace UpWeGo
                 string friendName = SteamFriends.GetFriendPersonaName(friendID);
                 EPersonaState friendState = SteamFriends.GetFriendPersonaState(friendID);
                 
+                Debug.Log($"Friend {i}: {friendName} - Status: {friendState}");
+                
                 // Only show online friends
                 if (friendState != EPersonaState.k_EPersonaStateOffline)
                 {
+                    Debug.Log($"Creating friend item for {friendName}");
                     CreateFriendItem(friendID, friendName, friendState);
                 }
             }
+            
+            Debug.Log($"Created {friendItems.Count} friend items");
         }
         
         private void CreateFriendItem(CSteamID friendID, string friendName, EPersonaState friendState)
         {
+            if (friendItemPrefab == null)
+            {
+                Debug.LogError("friendItemPrefab is null! Please assign it in the inspector.");
+                return;
+            }
+            
+            if (friendsListParent == null)
+            {
+                Debug.LogError("friendsListParent is null! Please assign it in the inspector.");
+                return;
+            }
+            
             GameObject friendItem = Instantiate(friendItemPrefab, friendsListParent);
             friendItems.Add(friendItem);
+            
+            Debug.Log($"Created friend item GameObject for {friendName}");
             
             // Setup using FriendItem component
             FriendItem friendItemComponent = friendItem.GetComponent<FriendItem>();
             if (friendItemComponent != null)
             {
+                Debug.Log($"Setting up FriendItem component for {friendName}");
                 friendItemComponent.SetupFriendItem(friendID, friendName, GetStatusText(friendState));
             }
             else
             {
+                Debug.LogWarning($"No FriendItem component found on prefab, using fallback setup for {friendName}");
                 // Fallback for manual setup if FriendItem component is not used
                 TextMeshProUGUI nameText = friendItem.transform.Find("NameText").GetComponent<TextMeshProUGUI>();
                 TextMeshProUGUI statusText = friendItem.transform.Find("StatusText").GetComponent<TextMeshProUGUI>();
@@ -106,7 +128,15 @@ namespace UpWeGo
                 
                 if (nameText != null) nameText.text = friendName;
                 if (statusText != null) statusText.text = GetStatusText(friendState);
-                if (inviteButton != null) inviteButton.onClick.AddListener(() => InviteFriend(friendID, friendName));
+                if (inviteButton != null) 
+                {
+                    inviteButton.onClick.AddListener(() => InviteFriend(friendID, friendName));
+                    Debug.Log($"Added click listener to invite button for {friendName}");
+                }
+                else
+                {
+                    Debug.LogError($"Could not find InviteButton in {friendName}'s friend item");
+                }
             }
         }
         

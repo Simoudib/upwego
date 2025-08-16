@@ -26,9 +26,21 @@ namespace UpWeGo
         
         private void OnInviteClicked()
         {
-            if (SteamLobby.Instance == null || SteamLobby.Instance.lobbyID == 0)
+            Debug.Log($"OnInviteClicked called for {nameText.text}");
+            
+            if (SteamLobby.Instance == null)
             {
-                Debug.LogError("No active lobby to invite to!");
+                Debug.LogError("SteamLobby.Instance is null!");
+                if (NotificationManager.Instance != null)
+                {
+                    NotificationManager.Instance.ShowErrorNotification("SteamLobby not found!");
+                }
+                return;
+            }
+            
+            if (SteamLobby.Instance.lobbyID == 0)
+            {
+                Debug.LogError("No active lobby to invite to! LobbyID is 0");
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowErrorNotification("No active lobby to invite to!");
@@ -36,18 +48,26 @@ namespace UpWeGo
                 return;
             }
             
+            Debug.Log($"Attempting to invite {nameText.text} to lobby {SteamLobby.Instance.lobbyID}");
+            
             CSteamID lobbyID = new CSteamID(SteamLobby.Instance.lobbyID);
             bool success = SteamMatchmaking.InviteUserToLobby(lobbyID, friendSteamID);
             
+            Debug.Log($"InviteUserToLobby returned: {success}");
+            
             if (success)
             {
-                Debug.Log($"Invited {nameText.text} to lobby");
+                Debug.Log($"Successfully invited {nameText.text} to lobby");
                 inviteButton.interactable = false;
                 inviteButton.GetComponentInChildren<TextMeshProUGUI>().text = "Invited";
                 
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowSuccessNotification($"Invitation sent to {nameText.text}");
+                }
+                else
+                {
+                    Debug.LogWarning("NotificationManager.Instance is null");
                 }
             }
             else
@@ -56,6 +76,10 @@ namespace UpWeGo
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowErrorNotification($"Failed to invite {nameText.text}");
+                }
+                else
+                {
+                    Debug.LogWarning("NotificationManager.Instance is null");
                 }
             }
         }
