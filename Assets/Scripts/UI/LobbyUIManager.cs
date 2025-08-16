@@ -15,6 +15,8 @@ namespace UpWeGo
         public List<TextMeshProUGUI> playerNameTexts = new List<TextMeshProUGUI>();
         public List<PlayerLobbyHandler> playerLobbyHandlers = new List<PlayerLobbyHandler>();
         public Button playGameButton;
+        public Button inviteFriendsButton;
+        public SteamFriendsUIManager steamFriendsUIManager;
 
         void Awake()
         {
@@ -32,6 +34,9 @@ namespace UpWeGo
         void Start()
         {
             playGameButton.interactable = false;
+            
+            if (inviteFriendsButton != null)
+                inviteFriendsButton.onClick.AddListener(OnInviteFriendsClicked);
         }
 
         public void UpdatePlayerLobbyUI()
@@ -116,6 +121,18 @@ namespace UpWeGo
         {
             yield return new WaitForSeconds(1f);
             UpdatePlayerLobbyUI();
+        }
+
+        public void OnInviteFriendsClicked()
+        {
+            if (steamFriendsUIManager != null)
+            {
+                steamFriendsUIManager.ShowFriendsPopupFromPanel("LobbyPanel");
+            }
+            else
+            {
+                Debug.LogError("SteamFriendsUIManager reference is missing!");
+            }
         }
 
     }
