@@ -14,19 +14,36 @@ namespace UpWeGo
         
         private CSteamID friendSteamID;
         
+        [ContextMenu("Test Button Click")]
+        public void TestButtonClick()
+        {
+            Debug.Log("🧪 TEST: Button click test called!");
+            OnInviteClicked();
+        }
+        
         public void SetupFriendItem(CSteamID steamID, string friendName, string status)
         {
             friendSteamID = steamID;
             nameText.text = friendName;
             statusText.text = status;
             
+            Debug.Log($"Setting up FriendItem for {friendName}");
+            
+            if (inviteButton == null)
+            {
+                Debug.LogError($"inviteButton is NULL for {friendName}! Check inspector references.");
+                return;
+            }
+            
             inviteButton.onClick.RemoveAllListeners();
             inviteButton.onClick.AddListener(OnInviteClicked);
+            
+            Debug.Log($"Added OnInviteClicked listener to button for {friendName}");
         }
         
         private void OnInviteClicked()
         {
-            Debug.Log($"OnInviteClicked called for {nameText.text}");
+            Debug.Log($"🔥 BUTTON CLICKED! OnInviteClicked called for {nameText.text}");
             
             if (SteamLobby.Instance == null)
             {
@@ -34,6 +51,10 @@ namespace UpWeGo
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowErrorNotification("SteamLobby not found!");
+                }
+                else
+                {
+                    Debug.LogError("❌ SteamLobby not found! (NotificationManager not available)");
                 }
                 return;
             }
@@ -44,6 +65,10 @@ namespace UpWeGo
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowErrorNotification("No active lobby to invite to!");
+                }
+                else
+                {
+                    Debug.LogError("❌ No active lobby to invite to! (NotificationManager not available)");
                 }
                 return;
             }
@@ -61,25 +86,27 @@ namespace UpWeGo
                 inviteButton.interactable = false;
                 inviteButton.GetComponentInChildren<TextMeshProUGUI>().text = "Invited";
                 
+                // Use NotificationManager (should be on OverlayCanvas now)
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowSuccessNotification($"Invitation sent to {nameText.text}");
                 }
                 else
                 {
-                    Debug.LogWarning("NotificationManager.Instance is null");
+                    Debug.Log($"✅ Invitation sent to {nameText.text} (NotificationManager not available)");
                 }
             }
             else
             {
                 Debug.LogError($"Failed to invite {nameText.text} to lobby");
+                // Use NotificationManager (should be on OverlayCanvas now)
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowErrorNotification($"Failed to invite {nameText.text}");
                 }
                 else
                 {
-                    Debug.LogWarning("NotificationManager.Instance is null");
+                    Debug.LogError($"❌ Failed to invite {nameText.text} (NotificationManager not available)");
                 }
             }
         }

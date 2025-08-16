@@ -165,10 +165,14 @@ namespace UpWeGo
         {
             if (SteamLobby.Instance == null || SteamLobby.Instance.lobbyID == 0)
             {
-                Debug.LogError("No active lobby to invite to!");
+                Debug.LogError("❌ No active lobby to invite to!");
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowErrorNotification("No active lobby to invite to!");
+                }
+                else
+                {
+                    Debug.LogError("❌ No active lobby to invite to! (NotificationManager not set up)");
                 }
                 return;
             }
@@ -178,18 +182,26 @@ namespace UpWeGo
             
             if (success)
             {
-                Debug.Log($"Invited {friendName} to lobby");
+                Debug.Log($"✅ Invited {friendName} to lobby");
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowSuccessNotification($"Invitation sent to {friendName}");
                 }
+                else
+                {
+                    Debug.Log($"✅ Invitation sent to {friendName} (NotificationManager not set up)");
+                }
             }
             else
             {
-                Debug.LogError($"Failed to invite {friendName} to lobby");
+                Debug.LogError($"❌ Failed to invite {friendName} to lobby");
                 if (NotificationManager.Instance != null)
                 {
                     NotificationManager.Instance.ShowErrorNotification($"Failed to invite {friendName}");
+                }
+                else
+                {
+                    Debug.LogError($"❌ Failed to invite {friendName} (NotificationManager not set up)");
                 }
             }
         }
