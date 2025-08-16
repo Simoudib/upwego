@@ -72,13 +72,27 @@ namespace UpWeGo
         {
             Debug.Log("Join request received for lobby: " + callback.m_steamIDLobby);
 
-            if (NetworkClient.isConnected || NetworkClient.active)
+            // Get the inviter's Steam ID (lobby owner)
+            CSteamID lobbyID = callback.m_steamIDLobby;
+            CSteamID inviterID = SteamMatchmaking.GetLobbyOwner(lobbyID);
+            
+            // Show invitation overlay instead of auto-joining
+            if (InvitationOverlayManager.Instance != null)
             {
-                Debug.Log("NetworkClient is active or connected. Disconnecting before joining new lobby");
-                NetworkManager.singleton.StopClient();
-                NetworkClient.Shutdown();
+                InvitationOverlayManager.Instance.ShowInvitationOverlay(lobbyID, inviterID);
             }
-            SteamMatchmaking.JoinLobby(callback.m_steamIDLobby);
+            else
+            {
+                Debug.LogWarning("InvitationOverlayManager not found, auto-joining lobby");
+                // Fallback to old behavior if overlay manager is not available
+                if (NetworkClient.isConnected || NetworkClient.active)
+                {
+                    Debug.Log("NetworkClient is active or connected. Disconnecting before joining new lobby");
+                    NetworkManager.singleton.StopClient();
+                    NetworkClient.Shutdown();
+                }
+                SteamMatchmaking.JoinLobby(callback.m_steamIDLobby);
+            }
         }
 
         void OnLobbyEntered(LobbyEnter_t callback)

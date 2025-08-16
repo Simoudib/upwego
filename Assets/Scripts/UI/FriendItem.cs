@@ -29,6 +29,10 @@ namespace UpWeGo
             if (SteamLobby.Instance == null || SteamLobby.Instance.lobbyID == 0)
             {
                 Debug.LogError("No active lobby to invite to!");
+                if (NotificationManager.Instance != null)
+                {
+                    NotificationManager.Instance.ShowErrorNotification("No active lobby to invite to!");
+                }
                 return;
             }
             
@@ -40,10 +44,19 @@ namespace UpWeGo
                 Debug.Log($"Invited {nameText.text} to lobby");
                 inviteButton.interactable = false;
                 inviteButton.GetComponentInChildren<TextMeshProUGUI>().text = "Invited";
+                
+                if (NotificationManager.Instance != null)
+                {
+                    NotificationManager.Instance.ShowSuccessNotification($"Invitation sent to {nameText.text}");
+                }
             }
             else
             {
                 Debug.LogError($"Failed to invite {nameText.text} to lobby");
+                if (NotificationManager.Instance != null)
+                {
+                    NotificationManager.Instance.ShowErrorNotification($"Failed to invite {nameText.text}");
+                }
             }
         }
     }
