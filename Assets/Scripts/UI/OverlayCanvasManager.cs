@@ -85,6 +85,10 @@ namespace UpWeGo
                 return;
             }
             
+            // IMPORTANT: Temporarily activate the overlay so the InvitationOverlayManager's Awake() runs
+            bool wasActive = invitationOverlay.activeSelf;
+            invitationOverlay.SetActive(true);
+            
             // Add InvitationOverlayManager if missing
             InvitationOverlayManager invitationManager = invitationOverlay.GetComponent<InvitationOverlayManager>();
             if (invitationManager == null)
@@ -96,7 +100,18 @@ namespace UpWeGo
             // Auto-assign the overlay reference
             invitationManager.invitationOverlay = invitationOverlay;
             
-            // Hide initially
+            // Force the Awake() method to run if it hasn't already
+            if (InvitationOverlayManager.Instance == null)
+            {
+                Debug.Log("🔄 Forcing InvitationOverlayManager initialization...");
+                // The Awake() should have run when we activated the GameObject
+                if (InvitationOverlayManager.Instance == null)
+                {
+                    Debug.LogWarning("⚠️ InvitationOverlayManager.Instance is still null after activation");
+                }
+            }
+            
+            // Now set it back to its original state (or hide it initially)
             invitationOverlay.SetActive(false);
             
             Debug.Log("✅ Invitation overlay setup complete");
