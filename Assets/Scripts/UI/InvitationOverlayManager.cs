@@ -51,11 +51,15 @@ namespace UpWeGo
         {
             Debug.Log("InvitationOverlayManager Start called");
             
+            // Auto-assign invitationOverlay if not set
             if (invitationOverlay == null)
             {
-                Debug.LogError("❌ invitationOverlay is null! Please assign it in the inspector.");
-                return;
+                invitationOverlay = gameObject;
+                Debug.Log("✅ Auto-assigned invitationOverlay to this GameObject");
             }
+            
+            // Auto-find UI references if not assigned
+            FindUIReferences();
             
             overlayCanvasGroup = invitationOverlay.GetComponent<CanvasGroup>();
             if (overlayCanvasGroup == null)
@@ -65,8 +69,105 @@ namespace UpWeGo
             }
             
             // Setup button listeners
+            SetupButtonListeners();
+            
+            // Hide overlay initially
+            HideOverlay();
+            Debug.Log("✅ InvitationOverlayManager setup complete");
+        }
+
+        private void FindUIReferences()
+        {
+            // Find UI elements by name or tag within this GameObject and its children
+            if (inviterNameText == null)
+            {
+                inviterNameText = GetComponentInChildren<TextMeshProUGUI>();
+                if (inviterNameText == null)
+                {
+                    // Try to find by name
+                    Transform inviterNameTransform = transform.Find("InviterName");
+                    if (inviterNameTransform != null)
+                        inviterNameText = inviterNameTransform.GetComponent<TextMeshProUGUI>();
+                }
+                
+                if (inviterNameText != null)
+                    Debug.Log("✅ Found inviterNameText automatically");
+                else
+                    Debug.LogWarning("⚠️ Could not find inviterNameText - please assign manually or name the GameObject 'InviterName'");
+            }
+
+            if (invitationMessageText == null)
+            {
+                // Find the second TextMeshProUGUI if first one was inviterNameText
+                TextMeshProUGUI[] texts = GetComponentsInChildren<TextMeshProUGUI>();
+                if (texts.Length > 1)
+                {
+                    invitationMessageText = texts[1]; // Use second text component
+                }
+                else
+                {
+                    // Try to find by name
+                    Transform messageTransform = transform.Find("InvitationMessage");
+                    if (messageTransform != null)
+                        invitationMessageText = messageTransform.GetComponent<TextMeshProUGUI>();
+                }
+                
+                if (invitationMessageText != null)
+                    Debug.Log("✅ Found invitationMessageText automatically");
+                else
+                    Debug.LogWarning("⚠️ Could not find invitationMessageText - please assign manually or name the GameObject 'InvitationMessage'");
+            }
+
+            if (acceptButton == null)
+            {
+                // Try to find by name first
+                Transform acceptTransform = transform.Find("AcceptButton");
+                if (acceptTransform != null)
+                {
+                    acceptButton = acceptTransform.GetComponent<Button>();
+                }
+                else
+                {
+                    // Find first button
+                    acceptButton = GetComponentInChildren<Button>();
+                }
+                
+                if (acceptButton != null)
+                    Debug.Log("✅ Found acceptButton automatically");
+                else
+                    Debug.LogWarning("⚠️ Could not find acceptButton - please assign manually or name the GameObject 'AcceptButton'");
+            }
+
+            if (declineButton == null)
+            {
+                // Try to find by name first
+                Transform declineTransform = transform.Find("DeclineButton");
+                if (declineTransform != null)
+                {
+                    declineButton = declineTransform.GetComponent<Button>();
+                }
+                else
+                {
+                    // Find second button if first was accept button
+                    Button[] buttons = GetComponentsInChildren<Button>();
+                    if (buttons.Length > 1)
+                    {
+                        declineButton = buttons[1]; // Use second button
+                    }
+                }
+                
+                if (declineButton != null)
+                    Debug.Log("✅ Found declineButton automatically");
+                else
+                    Debug.LogWarning("⚠️ Could not find declineButton - please assign manually or name the GameObject 'DeclineButton'");
+            }
+        }
+
+        private void SetupButtonListeners()
+        {
             if (acceptButton != null)
             {
+                acceptButton.onClick.RemoveAllListeners(); // Clear existing listeners
                 acceptButton.onClick.AddListener(AcceptInvitation);
                 Debug.Log("✅ Accept button listener added");
             }
@@ -77,6 +178,7 @@ namespace UpWeGo
             
             if (declineButton != null)
             {
+                declineButton.onClick.RemoveAllListeners(); // Clear existing listeners
                 declineButton.onClick.AddListener(DeclineInvitation);
                 Debug.Log("✅ Decline button listener added");
             }
@@ -84,10 +186,6 @@ namespace UpWeGo
             {
                 Debug.LogError("❌ declineButton is null!");
             }
-            
-            // Hide overlay initially
-            HideOverlay();
-            Debug.Log("✅ InvitationOverlayManager setup complete");
         }
         
         public void ShowInvitationOverlay(CSteamID lobbyID, CSteamID inviterID)
@@ -98,6 +196,14 @@ namespace UpWeGo
             {
                 Debug.LogError("Steam is not initialized!");
                 return;
+            }
+
+            // Try to find UI references again if they're null
+            if (inviterNameText == null || invitationMessageText == null || acceptButton == null || declineButton == null)
+            {
+                Debug.Log("🔄 Some UI references are null, attempting to find them again...");
+                FindUIReferences();
+                SetupButtonListeners();
             }
             
             currentLobbyInvite = lobbyID;
@@ -115,7 +221,7 @@ namespace UpWeGo
             }
             else
             {
-                Debug.LogError("❌ inviterNameText is null!");
+                Debug.LogError("❌ inviterNameText is still null after auto-find!");
             }
             
             if (invitationMessageText != null)
@@ -125,56 +231,79 @@ namespace UpWeGo
             }
             else
             {
-                Debug.LogError("❌ invitationMessageText is null!");
+                Debug.LogError("❌ invitationMessageText is still null after auto-find!");
             }
             
             // Show overlay with animation
             Debug.Log("Starting overlay animation...");
-            StartCoroutine(ShowOverlayAnimated());
-            
-            // Start auto-decline timer
-            if (autoDeclineCoroutine != null)
+            if (this != null && gameObject.activeInHierarchy)
             {
-                StopCoroutine(autoDeclineCoroutine);
+                StartCoroutine(ShowOverlayAnimated());
+                
+                // Start auto-decline timer
+                if (autoDeclineCoroutine != null)
+                {
+                    StopCoroutine(autoDeclineCoroutine);
+                }
+                autoDeclineCoroutine = StartCoroutine(AutoDeclineAfterDelay());
             }
-            autoDeclineCoroutine = StartCoroutine(AutoDeclineAfterDelay());
+            else
+            {
+                Debug.LogError("❌ Cannot start coroutines - GameObject is inactive or destroyed!");
+            }
         }
         
         private IEnumerator ShowOverlayAnimated()
         {
+            if (invitationOverlay == null || overlayCanvasGroup == null)
+            {
+                Debug.LogError("❌ Cannot show overlay - objects are null!");
+                yield break;
+            }
+
             invitationOverlay.SetActive(true);
             overlayCanvasGroup.alpha = 0f;
             overlayCanvasGroup.interactable = true;
             overlayCanvasGroup.blocksRaycasts = true;
             
             float elapsedTime = 0f;
-            while (elapsedTime < fadeInDuration)
+            while (elapsedTime < fadeInDuration && overlayCanvasGroup != null)
             {
                 elapsedTime += Time.deltaTime;
                 overlayCanvasGroup.alpha = Mathf.Lerp(0f, 1f, elapsedTime / fadeInDuration);
                 yield return null;
             }
             
-            overlayCanvasGroup.alpha = 1f;
+            if (overlayCanvasGroup != null)
+                overlayCanvasGroup.alpha = 1f;
         }
         
         private IEnumerator HideOverlayAnimated()
         {
+            if (overlayCanvasGroup == null)
+            {
+                Debug.LogWarning("⚠️ Cannot hide overlay - CanvasGroup is null!");
+                yield break;
+            }
+
             overlayCanvasGroup.interactable = false;
             overlayCanvasGroup.blocksRaycasts = false;
             
             float elapsedTime = 0f;
             float startAlpha = overlayCanvasGroup.alpha;
             
-            while (elapsedTime < fadeInDuration)
+            while (elapsedTime < fadeInDuration && overlayCanvasGroup != null)
             {
                 elapsedTime += Time.deltaTime;
                 overlayCanvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, elapsedTime / fadeInDuration);
                 yield return null;
             }
             
-            overlayCanvasGroup.alpha = 0f;
-            invitationOverlay.SetActive(false);
+            if (overlayCanvasGroup != null)
+                overlayCanvasGroup.alpha = 0f;
+                
+            if (invitationOverlay != null)
+                invitationOverlay.SetActive(false);
         }
         
         private IEnumerator AutoDeclineAfterDelay()
@@ -218,7 +347,15 @@ namespace UpWeGo
                 autoDeclineCoroutine = null;
             }
             
-            StartCoroutine(HideOverlayAnimated());
+            if (this != null && gameObject.activeInHierarchy)
+            {
+                StartCoroutine(HideOverlayAnimated());
+            }
+            else if (invitationOverlay != null)
+            {
+                // If we can't run coroutine, just hide immediately
+                invitationOverlay.SetActive(false);
+            }
             
             // Clear invitation data
             currentLobbyInvite = CSteamID.Nil;
@@ -228,6 +365,9 @@ namespace UpWeGo
         // Public method to check if overlay is currently showing
         public bool IsShowingInvitation()
         {
+            if (invitationOverlay == null || overlayCanvasGroup == null)
+                return false;
+                
             return invitationOverlay.activeInHierarchy && overlayCanvasGroup.alpha > 0f;
         }
         

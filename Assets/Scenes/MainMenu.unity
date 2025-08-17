@@ -1521,7 +1521,7 @@ GameObject:
   - component: {fileID: 624078734}
   - component: {fileID: 624078733}
   m_Layer: 5
-  m_Name: InviterNameText
+  m_Name: InviterName
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1657,7 +1657,7 @@ GameObject:
   - component: {fileID: 660272446}
   - component: {fileID: 660272445}
   m_Layer: 5
-  m_Name: InvitationMessageText
+  m_Name: InvitationMessage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
