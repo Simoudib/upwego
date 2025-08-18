@@ -1,5 +1,6 @@
 using UnityEngine;
 using Steamworks;
+using System.Linq;
 
 namespace UpWeGo
 {
@@ -53,9 +54,15 @@ namespace UpWeGo
             Debug.Log("🔍 STEAM STATE DEBUG:");
             Debug.Log($"   Steam ID: {SteamUser.GetSteamID()}");
             Debug.Log($"   Steam Name: {SteamFriends.GetPersonaName()}");
+            Debug.Log($"   App ID: {SteamUtils.GetAppID()}");
+            Debug.Log($"   Overlay Enabled: {SteamUtils.IsOverlayEnabled()}");
             Debug.Log($"   Lobby ID: {SteamLobby.Instance?.lobbyID ?? 0}");
             Debug.Log($"   NetworkServer.active: {Mirror.NetworkServer.active}");
             Debug.Log($"   NetworkClient.isConnected: {Mirror.NetworkClient.isConnected}");
+            
+            // Check if game was launched from Steam
+            bool launchedFromSteam = System.Environment.GetCommandLineArgs().Any(arg => arg.Contains("steam"));
+            Debug.Log($"   Launched from Steam: {launchedFromSteam}");
             
             if (SteamLobby.Instance != null && SteamLobby.Instance.lobbyID != 0)
             {
@@ -74,6 +81,12 @@ namespace UpWeGo
             {
                 Debug.LogError("   DynamicInvitationManager: ❌ Not found!");
             }
+
+            // Important note about testing
+            Debug.Log("📝 IMPORTANT: For invitations to work properly:");
+            Debug.Log("   1. Game should be launched from Steam (not Unity Editor)");
+            Debug.Log("   2. Game should be added to Steam as non-Steam game");
+            Debug.Log("   3. Both sender and receiver should have game launched from Steam");
         }
 
         [ContextMenu("Force Show Test Overlay")]

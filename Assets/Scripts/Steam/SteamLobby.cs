@@ -15,6 +15,7 @@ namespace UpWeGo
         public PanelSwapper panelSwapper;
         protected Callback<LobbyCreated_t> lobbyCreated;
         protected Callback<GameLobbyJoinRequested_t> gameLobbyJoinRequested;
+        protected Callback<LobbyInvite_t> lobbyInvite;
         protected Callback<LobbyEnter_t> lobbyEntered;
         protected Callback<LobbyChatUpdate_t> lobbyChatUpdate;
 
@@ -44,6 +45,7 @@ namespace UpWeGo
             panelSwapper.gameObject.SetActive(true);
             lobbyCreated = Callback<LobbyCreated_t>.Create(OnLobbyCreated);
             gameLobbyJoinRequested = Callback<GameLobbyJoinRequested_t>.Create(OnGameLobbyJoinRequested);
+            lobbyInvite = Callback<LobbyInvite_t>.Create(OnLobbyInvite);
             lobbyEntered = Callback<LobbyEnter_t>.Create(OnLobbyEntered);
             lobbyChatUpdate = Callback<LobbyChatUpdate_t>.Create(OnLobbyChatUpdate);
         }
@@ -68,19 +70,46 @@ namespace UpWeGo
             lobbyID = callback.m_ulSteamIDLobby;
         }
 
+        void OnLobbyInvite(LobbyInvite_t callback)
+        {
+            Debug.Log("🎉 INVITATION RECEIVED! OnLobbyInvite triggered");
+            Debug.Log($"   Lobby ID: {callback.m_ulSteamIDLobby}");
+            Debug.Log($"   Inviter ID: {callback.m_ulSteamIDUser}");
+            Debug.Log($"   Game ID: {callback.m_ulGameID}");
+
+            CSteamID lobbyID = new CSteamID(callback.m_ulSteamIDLobby);
+            CSteamID inviterID = new CSteamID(callback.m_ulSteamIDUser);
+            
+            // Show invitation overlay immediately when invitation is received
+            if (DynamicInvitationManager.Instance != null)
+            {
+                Debug.Log("📨 Showing invitation overlay from LobbyInvite callback");
+                DynamicInvitationManager.Instance.ShowInvitationOverlay(lobbyID, inviterID);
+            }
+            else
+            {
+                Debug.LogWarning("❌ DynamicInvitationManager.Instance is null in OnLobbyInvite");
+            }
+        }
+
         void OnGameLobbyJoinRequested(GameLobbyJoinRequested_t callback)
         {
-            Debug.Log("Join request received for lobby: " + callback.m_steamIDLobby);
+            Debug.Log("🔗 JOIN REQUEST: OnGameLobbyJoinRequested triggered (user clicked Steam notification)");
 
             CSteamID lobbyID = callback.m_steamIDLobby;
-            
-            // The callback has m_steamIDFriend which is the person who sent the invite
             CSteamID inviterID = callback.m_steamIDFriend;
             
-            Debug.Log($"🔍 Invitation details:");
+            Debug.Log($"🔍 Join request details:");
             Debug.Log($"   Lobby ID: {lobbyID}");
             Debug.Log($"   Inviter ID (from callback): {inviterID}");
             Debug.Log($"   Lobby Owner: {SteamMatchmaking.GetLobbyOwner(lobbyID)}");
+            
+            // Check if we already have an invitation overlay showing
+            if (DynamicInvitationManager.Instance != null && DynamicInvitationManager.Instance.IsShowingInvitation())
+            {
+                Debug.Log("📋 Invitation overlay already showing, not creating duplicate");
+                return;
+            }
             
             // If inviter ID is invalid, fall back to lobby owner
             if (!inviterID.IsValid() || inviterID.m_SteamID == 0)
@@ -89,9 +118,10 @@ namespace UpWeGo
                 inviterID = SteamMatchmaking.GetLobbyOwner(lobbyID);
             }
             
-            // Show invitation overlay using the new dynamic system
+            // Show invitation overlay (fallback if LobbyInvite didn't trigger)
             if (DynamicInvitationManager.Instance != null)
             {
+                Debug.Log("📨 Showing invitation overlay from GameLobbyJoinRequested callback (fallback)");
                 DynamicInvitationManager.Instance.ShowInvitationOverlay(lobbyID, inviterID);
             }
             else
