@@ -127,8 +127,9 @@ namespace UpWeGo
 
             Debug.Log($"🎮 Overlay should now be visible! Child count of canvas: {overlayCanvas.transform.childCount}");
 
-            // Start auto-decline timer
-            StartCoroutine(AutoDeclineAfterDelay(10f));
+            // TODO: Re-enable auto-decline timer once button clickability is fixed
+            // StartCoroutine(AutoDeclineAfterDelay(10f));
+            Debug.Log("⏰ Auto-decline timer disabled until button clickability is fixed");
         }
 
         private void SetupInvitationOverlay(string inviterName)
@@ -263,6 +264,13 @@ namespace UpWeGo
             TestShowInvitationForced(fakeLobbyID, fakeInviterID);
         }
 
+        [ContextMenu("Manual Close Overlay")]
+        public void ManualCloseOverlay()
+        {
+            Debug.Log("🗑️ MANUAL: Closing invitation overlay...");
+            HideInvitationOverlay();
+        }
+
         public void TestShowInvitationForced(CSteamID lobbyID, CSteamID inviterID)
         {
             Debug.Log("🧪 FORCED TEST: Showing invitation overlay...");
@@ -317,8 +325,9 @@ namespace UpWeGo
                 Debug.Log($"   Canvas child {i}: {child.name} (active: {child.gameObject.activeSelf})");
             }
 
-            // Extend auto-decline timer for testing
-            StartCoroutine(AutoDeclineAfterDelay(30f)); // 30 seconds for testing
+            // Auto-decline timer disabled for testing button clickability
+            // StartCoroutine(AutoDeclineAfterDelay(30f));
+            Debug.Log("⏰ TEST: Auto-decline timer disabled for button testing");
         }
 
         private void EnsureCanvasSetup()

@@ -34,8 +34,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -75, y: -22.244812}
-  m_SizeDelta: {x: 426.7711, y: 32.4906}
+  m_AnchoredPosition: {x: -91.83607, y: -21.478}
+  m_SizeDelta: {x: 393.1039, y: 30.957}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2539502072351854431
 CanvasRenderer:
@@ -130,7 +130,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: 0, y: 0, z: 7.9782715, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -267,9 +267,8 @@ GameObject:
   m_Component:
   - component: {fileID: 4340554584613672615}
   - component: {fileID: 550278846649714485}
-  - component: {fileID: 6082558218959147069}
-  - component: {fileID: 4530129960561797043}
   - component: {fileID: 1540638030140139529}
+  - component: {fileID: 4530129960561797043}
   - component: {fileID: 9074446298305926821}
   m_Layer: 5
   m_Name: InvitationOverlayPrefab
@@ -290,10 +289,10 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7315393888341789392}
-  - {fileID: 7187283861288007504}
   - {fileID: 6111678724332471749}
   - {fileID: 6824661145989997964}
+  - {fileID: 7315393888341789392}
+  - {fileID: 7187283861288007504}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -309,41 +308,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2687602037206016784}
   m_CullTransparentMesh: 1
---- !u!223 &6082558218959147069
-Canvas:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2687602037206016784}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_RenderMode: 2
-  m_Camera: {fileID: 0}
-  m_PlaneDistance: 100
-  m_PixelPerfect: 0
-  m_ReceivesEvents: 1
-  m_OverrideSorting: 0
-  m_OverridePixelPerfect: 0
-  m_SortingBucketNormalizedSize: 0
-  m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 25
-  m_UpdateRectTransformForStandalone: 0
-  m_SortingLayerID: 0
-  m_SortingOrder: 0
-  m_TargetDisplay: 0
---- !u!225 &4530129960561797043
-CanvasGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2687602037206016784}
-  m_Enabled: 1
-  m_Alpha: 1
-  m_Interactable: 1
-  m_BlocksRaycasts: 1
-  m_IgnoreParentGroups: 0
 --- !u!114 &1540638030140139529
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -374,6 +338,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!225 &4530129960561797043
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2687602037206016784}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!114 &9074446298305926821
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -822,8 +798,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -75, y: 19}
-  m_SizeDelta: {x: 426.7711, y: 45.913}
+  m_AnchoredPosition: {x: -87.6321, y: 18.522}
+  m_SizeDelta: {x: 401.5069, y: 44.956}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1115938672342770745
 CanvasRenderer:

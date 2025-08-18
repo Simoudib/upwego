@@ -130,6 +130,14 @@ namespace UpWeGo
                 LogSteamState();
             }
 
+            if (GUILayout.Button("Close Overlay"))
+            {
+                if (DynamicInvitationManager.Instance != null)
+                {
+                    DynamicInvitationManager.Instance.ManualCloseOverlay();
+                }
+            }
+
             GUILayout.EndArea();
         }
     }
