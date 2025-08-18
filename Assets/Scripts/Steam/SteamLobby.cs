@@ -76,69 +76,22 @@ namespace UpWeGo
             CSteamID lobbyID = callback.m_steamIDLobby;
             CSteamID inviterID = SteamMatchmaking.GetLobbyOwner(lobbyID);
             
-            // Show invitation overlay instead of auto-joining
-            if (InvitationOverlayManager.Instance != null)
+            // Show invitation overlay using the new dynamic system
+            if (DynamicInvitationManager.Instance != null)
             {
-                InvitationOverlayManager.Instance.ShowInvitationOverlay(lobbyID, inviterID);
+                DynamicInvitationManager.Instance.ShowInvitationOverlay(lobbyID, inviterID);
             }
             else
             {
-                Debug.LogWarning("InvitationOverlayManager.Instance is null, trying to find and activate overlay...");
-                
-                // Try to find the overlay and activate it
-                if (TryActivateInvitationOverlay(lobbyID, inviterID))
+                Debug.LogWarning("❌ DynamicInvitationManager.Instance is null, auto-joining lobby");
+                // Fallback to old behavior if overlay manager is not available
+                if (NetworkClient.isConnected || NetworkClient.active)
                 {
-                    Debug.Log("✅ Successfully activated invitation overlay");
+                    Debug.Log("NetworkClient is active or connected. Disconnecting before joining new lobby");
+                    NetworkManager.singleton.StopClient();
+                    NetworkClient.Shutdown();
                 }
-                else
-                {
-                    Debug.LogWarning("❌ Could not activate invitation overlay, auto-joining lobby");
-                    // Fallback to old behavior if overlay manager is not available
-                    if (NetworkClient.isConnected || NetworkClient.active)
-                    {
-                        Debug.Log("NetworkClient is active or connected. Disconnecting before joining new lobby");
-                        NetworkManager.singleton.StopClient();
-                        NetworkClient.Shutdown();
-                    }
-                    SteamMatchmaking.JoinLobby(callback.m_steamIDLobby);
-                }
-            }
-        }
-
-        private bool TryActivateInvitationOverlay(CSteamID lobbyID, CSteamID inviterID)
-        {
-            // Try to find the OverlayCanvasManager
-            UpWeGo.OverlayCanvasManager overlayManager = FindObjectOfType<UpWeGo.OverlayCanvasManager>();
-            if (overlayManager == null)
-            {
-                Debug.LogWarning("⚠️ OverlayCanvasManager not found");
-                return false;
-            }
-
-            // Try to find the invitation overlay
-            if (overlayManager.invitationOverlay == null)
-            {
-                Debug.LogWarning("⚠️ invitationOverlay not assigned in OverlayCanvasManager");
-                return false;
-            }
-
-            // Temporarily activate the overlay to initialize the manager
-            GameObject overlay = overlayManager.invitationOverlay;
-            bool wasActive = overlay.activeSelf;
-            overlay.SetActive(true);
-
-            // Check if the manager is now available
-            if (InvitationOverlayManager.Instance != null)
-            {
-                Debug.Log("✅ InvitationOverlayManager.Instance found after activation");
-                InvitationOverlayManager.Instance.ShowInvitationOverlay(lobbyID, inviterID);
-                return true;
-            }
-            else
-            {
-                Debug.LogError("❌ InvitationOverlayManager.Instance still null after activation");
-                overlay.SetActive(wasActive); // Restore original state
-                return false;
+                SteamMatchmaking.JoinLobby(callback.m_steamIDLobby);
             }
         }
 
