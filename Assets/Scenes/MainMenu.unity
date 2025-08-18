@@ -1365,7 +1365,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   invitationOverlayPrefab: {fileID: 2687602037206016784, guid: 34fc6224fab56ad40aea7547b74e06f1, type: 3}
-  overlayCanvas: {fileID: 1599631822}
+  overlayCanvas: {fileID: 559179977}
 --- !u!4 &613177014
 Transform:
   m_ObjectHideFlags: 0

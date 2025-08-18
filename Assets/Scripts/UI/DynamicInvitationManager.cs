@@ -89,6 +89,9 @@ namespace UpWeGo
             Debug.Log($"📍 Overlay position: {currentInvitationOverlay.transform.position}");
             Debug.Log($"📏 Canvas info: {overlayCanvas.name}, SortingOrder: {overlayCanvas.sortingOrder}, RenderMode: {overlayCanvas.renderMode}");
 
+            // Ensure the overlay canvas is properly configured for UI interaction
+            EnsureCanvasSetup();
+
             // Store invitation data
             currentLobbyInvite = lobbyID;
             inviterSteamID = inviterID;
@@ -118,6 +121,9 @@ namespace UpWeGo
             // Force the overlay to be visible and on top
             currentInvitationOverlay.SetActive(true);
             currentInvitationOverlay.transform.SetAsLastSibling(); // Move to front
+
+            // Ensure the overlay is properly configured for interaction
+            EnsureOverlayInteractable();
 
             Debug.Log($"🎮 Overlay should now be visible! Child count of canvas: {overlayCanvas.transform.childCount}");
 
@@ -313,6 +319,70 @@ namespace UpWeGo
 
             // Extend auto-decline timer for testing
             StartCoroutine(AutoDeclineAfterDelay(30f)); // 30 seconds for testing
+        }
+
+        private void EnsureCanvasSetup()
+        {
+            if (overlayCanvas == null) return;
+
+            // Ensure Canvas is configured properly for UI interaction
+            overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            overlayCanvas.sortingOrder = 1000; // Very high value to appear on top
+            overlayCanvas.overrideSorting = true;
+
+            // Ensure GraphicRaycaster exists for UI interaction
+            GraphicRaycaster raycaster = overlayCanvas.GetComponent<GraphicRaycaster>();
+            if (raycaster == null)
+            {
+                raycaster = overlayCanvas.gameObject.AddComponent<GraphicRaycaster>();
+                Debug.Log("✅ Added GraphicRaycaster to overlay canvas");
+            }
+
+            // Make sure it's blocking raycasts
+            raycaster.blockingObjects = GraphicRaycaster.BlockingObjects.None;
+            raycaster.ignoreReversedGraphics = true;
+
+            Debug.Log($"📋 Canvas setup: SortingOrder={overlayCanvas.sortingOrder}, RenderMode={overlayCanvas.renderMode}");
+        }
+
+        private void EnsureOverlayInteractable()
+        {
+            if (currentInvitationOverlay == null) return;
+
+            // Ensure the overlay has a CanvasGroup for proper interaction
+            CanvasGroup canvasGroup = currentInvitationOverlay.GetComponent<CanvasGroup>();
+            if (canvasGroup == null)
+            {
+                canvasGroup = currentInvitationOverlay.AddComponent<CanvasGroup>();
+                Debug.Log("✅ Added CanvasGroup to invitation overlay");
+            }
+
+            // Make sure it's interactable
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+            canvasGroup.alpha = 1f;
+
+            // Ensure all buttons are interactable
+            Button[] buttons = currentInvitationOverlay.GetComponentsInChildren<Button>();
+            foreach (Button button in buttons)
+            {
+                button.interactable = true;
+                Debug.Log($"✅ Set button '{button.name}' as interactable");
+            }
+
+            // Set the overlay to stretch full screen for proper raycast coverage
+            RectTransform rectTransform = currentInvitationOverlay.GetComponent<RectTransform>();
+            if (rectTransform != null)
+            {
+                rectTransform.anchorMin = Vector2.zero;
+                rectTransform.anchorMax = Vector2.one;
+                rectTransform.offsetMin = Vector2.zero;
+                rectTransform.offsetMax = Vector2.zero;
+                rectTransform.anchoredPosition = Vector2.zero;
+                Debug.Log("✅ Set overlay to full screen");
+            }
+
+            Debug.Log($"🎛️ Overlay interaction setup complete. Buttons found: {buttons.Length}");
         }
 
         void OnDestroy()
