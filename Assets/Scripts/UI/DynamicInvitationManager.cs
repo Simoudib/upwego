@@ -72,23 +72,54 @@ namespace UpWeGo
                 return;
             }
 
+            // Debug the inviter ID issue
+            if (!inviterID.IsValid() || inviterID.m_SteamID == 0)
+            {
+                Debug.LogWarning($"⚠️ Invalid inviter ID: {inviterID}. Trying to get lobby owner...");
+                inviterID = SteamMatchmaking.GetLobbyOwner(lobbyID);
+                Debug.Log($"🔄 Lobby owner ID: {inviterID}");
+            }
+
             // Hide any existing invitation overlay
             HideInvitationOverlay();
 
             // Instantiate the invitation overlay prefab
             currentInvitationOverlay = Instantiate(invitationOverlayPrefab, overlayCanvas.transform);
-            Debug.Log("✅ Instantiated invitation overlay prefab");
+            Debug.Log($"✅ Instantiated invitation overlay prefab. Active: {currentInvitationOverlay.activeSelf}");
+            Debug.Log($"📍 Overlay position: {currentInvitationOverlay.transform.position}");
+            Debug.Log($"📏 Canvas info: {overlayCanvas.name}, SortingOrder: {overlayCanvas.sortingOrder}, RenderMode: {overlayCanvas.renderMode}");
 
             // Store invitation data
             currentLobbyInvite = lobbyID;
             inviterSteamID = inviterID;
 
             // Get inviter's name
-            string inviterName = SteamFriends.GetFriendPersonaName(inviterID);
-            Debug.Log($"Inviter name: {inviterName}");
+            string inviterName = "";
+            if (inviterID.IsValid() && inviterID.m_SteamID != 0)
+            {
+                inviterName = SteamFriends.GetFriendPersonaName(inviterID);
+                if (string.IsNullOrEmpty(inviterName))
+                {
+                    inviterName = "Unknown Player";
+                    Debug.LogWarning("⚠️ Could not get inviter name from Steam, using fallback");
+                }
+            }
+            else
+            {
+                inviterName = "Unknown Player";
+                Debug.LogWarning("⚠️ Invalid inviter ID, using fallback name");
+            }
+            
+            Debug.Log($"Inviter name: '{inviterName}'");
 
             // Setup the overlay with the invitation data
             SetupInvitationOverlay(inviterName);
+
+            // Force the overlay to be visible and on top
+            currentInvitationOverlay.SetActive(true);
+            currentInvitationOverlay.transform.SetAsLastSibling(); // Move to front
+
+            Debug.Log($"🎮 Overlay should now be visible! Child count of canvas: {overlayCanvas.transform.childCount}");
 
             // Start auto-decline timer
             StartCoroutine(AutoDeclineAfterDelay(10f));
@@ -217,9 +248,71 @@ namespace UpWeGo
         public void TestShowInvitation()
         {
             Debug.Log("🧪 Testing invitation overlay...");
+            
+            // Use a fake but more realistic Steam ID
             var fakeLobbyID = new CSteamID(123456789);
-            var fakeInviterID = new CSteamID(987654321);
-            ShowInvitationOverlay(fakeLobbyID, fakeInviterID);
+            var fakeInviterID = SteamUser.GetSteamID(); // Use our own Steam ID for testing
+            
+            // Force show the overlay for testing
+            TestShowInvitationForced(fakeLobbyID, fakeInviterID);
+        }
+
+        public void TestShowInvitationForced(CSteamID lobbyID, CSteamID inviterID)
+        {
+            Debug.Log("🧪 FORCED TEST: Showing invitation overlay...");
+            
+            // Skip Steam checks for testing
+            if (invitationOverlayPrefab == null)
+            {
+                Debug.LogError("❌ invitationOverlayPrefab is not assigned!");
+                return;
+            }
+
+            if (overlayCanvas == null)
+            {
+                Debug.LogError("❌ overlayCanvas is not assigned or found!");
+                return;
+            }
+
+            // Hide any existing invitation overlay
+            HideInvitationOverlay();
+
+            // Instantiate the invitation overlay prefab
+            currentInvitationOverlay = Instantiate(invitationOverlayPrefab, overlayCanvas.transform);
+            Debug.Log($"✅ TEST: Instantiated invitation overlay prefab. Active: {currentInvitationOverlay.activeSelf}");
+            
+            // Store invitation data
+            currentLobbyInvite = lobbyID;
+            inviterSteamID = inviterID;
+
+            // Use test data
+            string inviterName = "Test Player";
+            Debug.Log($"TEST: Using inviter name: '{inviterName}'");
+
+            // Setup the overlay with test data
+            SetupInvitationOverlay(inviterName);
+
+            // Force the overlay to be visible and on top
+            currentInvitationOverlay.SetActive(true);
+            currentInvitationOverlay.transform.SetAsLastSibling();
+
+            // Make sure all child objects are active
+            foreach (Transform child in currentInvitationOverlay.transform)
+            {
+                child.gameObject.SetActive(true);
+            }
+
+            Debug.Log($"🧪 TEST: Overlay should now be visible! Canvas children: {overlayCanvas.transform.childCount}");
+            
+            // List all canvas children for debugging
+            for (int i = 0; i < overlayCanvas.transform.childCount; i++)
+            {
+                Transform child = overlayCanvas.transform.GetChild(i);
+                Debug.Log($"   Canvas child {i}: {child.name} (active: {child.gameObject.activeSelf})");
+            }
+
+            // Extend auto-decline timer for testing
+            StartCoroutine(AutoDeclineAfterDelay(30f)); // 30 seconds for testing
         }
 
         void OnDestroy()

@@ -72,9 +72,22 @@ namespace UpWeGo
         {
             Debug.Log("Join request received for lobby: " + callback.m_steamIDLobby);
 
-            // Get the inviter's Steam ID (lobby owner)
             CSteamID lobbyID = callback.m_steamIDLobby;
-            CSteamID inviterID = SteamMatchmaking.GetLobbyOwner(lobbyID);
+            
+            // The callback has m_steamIDFriend which is the person who sent the invite
+            CSteamID inviterID = callback.m_steamIDFriend;
+            
+            Debug.Log($"🔍 Invitation details:");
+            Debug.Log($"   Lobby ID: {lobbyID}");
+            Debug.Log($"   Inviter ID (from callback): {inviterID}");
+            Debug.Log($"   Lobby Owner: {SteamMatchmaking.GetLobbyOwner(lobbyID)}");
+            
+            // If inviter ID is invalid, fall back to lobby owner
+            if (!inviterID.IsValid() || inviterID.m_SteamID == 0)
+            {
+                Debug.LogWarning("⚠️ Inviter ID from callback is invalid, using lobby owner");
+                inviterID = SteamMatchmaking.GetLobbyOwner(lobbyID);
+            }
             
             // Show invitation overlay using the new dynamic system
             if (DynamicInvitationManager.Instance != null)

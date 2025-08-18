@@ -957,9 +957,7 @@ GameObject:
   - component: {fileID: 559179977}
   - component: {fileID: 559179976}
   - component: {fileID: 559179975}
-  - component: {fileID: 559179974}
   - component: {fileID: 559179980}
-  - component: {fileID: 559179979}
   m_Layer: 5
   m_Name: OverlayCanvas
   m_TagString: Untagged
@@ -967,22 +965,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &559179974
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 559179972}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7bcb9d7505783ed43b5d5a4f300fa707, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  overlayCanvas: {fileID: 559179977}
-  sortingOrder: 100
-  invitationOverlay: {fileID: 0}
-  notificationPanel: {fileID: 978785727}
 --- !u!114 &559179975
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1066,25 +1048,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
---- !u!114 &559179979
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 559179972}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0b661225d8b5e8c498ccd882811e31c0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  invitationOverlay: {fileID: 0}
-  inviterNameText: {fileID: 0}
-  invitationMessageText: {fileID: 0}
-  acceptButton: {fileID: 0}
-  declineButton: {fileID: 0}
-  fadeInDuration: 0.3
-  displayDuration: 10
 --- !u!114 &559179980
 MonoBehaviour:
   m_ObjectHideFlags: 0
