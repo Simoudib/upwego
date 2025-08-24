@@ -156,16 +156,33 @@ public class CustomNetworkManager : NetworkManager
     /// <param name="conn">Connection from client.</param>
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
+        // Prevent multiple players for the same connection
+        if (conn.identity != null)
+        {
+            Debug.LogWarning($"⚠️ Connection {conn.connectionId} already has a player! Ignoring duplicate spawn request.");
+            return;
+        }
+
+        Debug.Log($"🎮 Adding player for connection {conn.connectionId}");
+        Debug.Log($"📊 Available spawn points: {startPositions.Count}");
+        Debug.Log($"🎲 Spawn method: {playerSpawnMethod}");
+        Debug.Log($"📍 Current spawn index: {startPositionIndex}");
+
         // Get spawn position from NetworkStartPosition components
         Transform spawnPoint = GetStartPosition();
         
         if (spawnPoint != null)
         {
+            // Add small random offset to prevent perfect overlap
+            Vector3 spawnPosition = spawnPoint.position + GetRandomOffset();
+            Quaternion spawnRotation = spawnPoint.rotation;
+            
             // Spawn player at the designated spawn point
-            GameObject player = Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
+            GameObject player = Instantiate(playerPrefab, spawnPosition, spawnRotation);
             NetworkServer.AddPlayerForConnection(conn, player);
             
-            Debug.Log($"✅ Spawned player for {conn.connectionId} at position {spawnPoint.position}");
+            Debug.Log($"✅ Spawned player for connection {conn.connectionId} at spawn point '{spawnPoint.name}' position {spawnPosition}");
+            Debug.Log($"📍 Next spawn index will be: {startPositionIndex}");
         }
         else
         {
@@ -182,6 +199,41 @@ public class CustomNetworkManager : NetworkManager
             Debug.LogWarning($"⚠️ No spawn points found! Spawned player at random position {randomPosition}");
             Debug.LogWarning("💡 Add NetworkStartPosition components or use SpawnPointManager to fix this");
         }
+    }
+
+    /// <summary>
+    /// Get a small random offset to prevent players from spawning at exactly the same position
+    /// </summary>
+    private Vector3 GetRandomOffset()
+    {
+        return new Vector3(
+            UnityEngine.Random.Range(-1f, 1f),
+            0f,
+            UnityEngine.Random.Range(-1f, 1f)
+        );
+    }
+
+    /// <summary>
+    /// Enhanced GetStartPosition with better debugging
+    /// </summary>
+    public override Transform GetStartPosition()
+    {
+        // Debug spawn points
+        Debug.Log($"🔍 Getting start position. Available spawn points: {startPositions.Count}");
+        
+        for (int i = 0; i < startPositions.Count; i++)
+        {
+            if (startPositions[i] != null)
+            {
+                Debug.Log($"   Spawn Point {i}: {startPositions[i].name} at {startPositions[i].position}");
+            }
+            else
+            {
+                Debug.LogWarning($"   Spawn Point {i}: NULL (will be removed)");
+            }
+        }
+
+        return base.GetStartPosition();
     }
 
     /// <summary>
