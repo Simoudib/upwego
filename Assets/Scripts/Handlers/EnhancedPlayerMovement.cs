@@ -19,9 +19,10 @@ namespace UpWeGo
         public LayerMask playerLayerMask = 1; // Layer mask for detecting other players
 
         [Header("Toss Settings")]
-        public float tossForce = 10f; // Forward force when tossing
-        public float tossUpwardForce = 5f; // Upward force when tossing
+        public float tossDistance = 8f; // How far to throw (like throwing a ball)
+        public float tossHeight = 4f; // Maximum arc height
         public float tossCooldown = 1f; // Cooldown after tossing
+        public bool useGravityForToss = true; // Use physics gravity for natural arc
 
         [Header("Network Smoothing")]
         public float localCarriedLerpSpeed = 15f; // Speed for local player being carried
@@ -313,13 +314,12 @@ namespace UpWeGo
                 EnhancedPlayerMovement carriedPlayerComponent = carriedIdentity.GetComponent<EnhancedPlayerMovement>();
                 if (carriedPlayerComponent != null)
                 {
-                    // Calculate toss direction (forward from carrier)
-                    Vector3 tossDirection = transform.forward;
-                    tossDirection.y = 0; // Keep horizontal
-                    tossDirection.Normalize();
-
-                    // Add upward component for arc
-                    Vector3 tossVelocity = tossDirection * tossForce + Vector3.up * tossUpwardForce;
+                    // Calculate proper projectile motion for ball-like throwing
+                    Vector3 tossVelocity = CalculateProjectileVelocity(
+                        transform.position, 
+                        transform.position + transform.forward * tossDistance,
+                        tossHeight
+                    );
 
                     // Position the player slightly in front before applying velocity
                     Vector3 tossPosition = transform.position + transform.forward * 2f + Vector3.up * 0.5f;
@@ -489,6 +489,37 @@ namespace UpWeGo
             }
         }
 
+        // Calculate projectile velocity for realistic ball-throwing arc
+        Vector3 CalculateProjectileVelocity(Vector3 startPos, Vector3 targetPos, float arcHeight)
+        {
+            // Get the horizontal distance and direction
+            Vector3 horizontalDisplacement = targetPos - startPos;
+            horizontalDisplacement.y = 0; // Remove vertical component
+            
+            float horizontalDistance = horizontalDisplacement.magnitude;
+            Vector3 horizontalDirection = horizontalDisplacement.normalized;
+            
+            // Calculate time of flight using projectile motion equations
+            // For a projectile with arc height h, the time to reach max height is:
+            // t_up = sqrt(2h/g), total flight time = 2 * t_up
+            float timeToReachMaxHeight = Mathf.Sqrt(2 * arcHeight / gravity);
+            float totalFlightTime = 2 * timeToReachMaxHeight;
+            
+            // Calculate horizontal velocity needed to cover the distance in flight time
+            float horizontalVelocity = horizontalDistance / totalFlightTime;
+            
+            // Calculate initial vertical velocity to reach the desired arc height
+            // v_y = sqrt(2 * g * h) for projectile motion
+            float verticalVelocity = Mathf.Sqrt(2 * gravity * arcHeight);
+            
+            // Combine horizontal and vertical components
+            Vector3 velocity = horizontalDirection * horizontalVelocity + Vector3.up * verticalVelocity;
+            
+            Debug.Log($"🎯 Projectile calculation: Distance={horizontalDistance:F1}m, Height={arcHeight:F1}m, Time={totalFlightTime:F1}s, Velocity={velocity}");
+            
+            return velocity;
+        }
+
         void OnDrawGizmosSelected()
         {
             if (showCarryRadius)
@@ -504,7 +535,50 @@ namespace UpWeGo
                     Gizmos.DrawWireSphere(carryPosition.position, 0.5f);
                     Gizmos.DrawLine(transform.position, carryPosition.position);
                 }
+
+                // Draw toss trajectory preview
+                DrawTossTrajectory();
             }
+        }
+
+        void DrawTossTrajectory()
+        {
+            if (!Application.isPlaying) return;
+
+            // Calculate toss target and velocity
+            Vector3 startPos = transform.position + Vector3.up * 1f; // Throwing height
+            Vector3 targetPos = startPos + transform.forward * tossDistance;
+            
+            // Draw trajectory arc
+            Gizmos.color = Color.red;
+            Vector3 currentPos = startPos;
+            
+            // Simulate projectile motion for visualization
+            float timeStep = 0.05f;
+            int steps = Mathf.RoundToInt(3f / timeStep); // Show 3 seconds of trajectory
+            Vector3 velocity = CalculateProjectileVelocity(startPos, targetPos, tossHeight);
+
+            for (int i = 0; i < steps; i++)
+            {
+                Vector3 nextPos = currentPos + velocity * timeStep;
+                velocity.y -= gravity * timeStep; // Apply gravity
+                
+                Gizmos.DrawLine(currentPos, nextPos);
+                currentPos = nextPos;
+
+                // Stop if we hit the ground (below start height)
+                if (currentPos.y <= transform.position.y) break;
+            }
+
+            // Draw target position
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireSphere(targetPos, 0.5f);
+            
+            // Draw max height indicator
+            Gizmos.color = Color.magenta;
+            Vector3 maxHeightPos = startPos + (targetPos - startPos) * 0.5f;
+            maxHeightPos.y = startPos.y + tossHeight;
+            Gizmos.DrawWireCube(maxHeightPos, Vector3.one * 0.3f);
         }
 
         // Public properties for UI/debugging
