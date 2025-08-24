@@ -106,6 +106,12 @@ namespace UpWeGo
             // Don't handle movement if being tossed
             if (isBeingTossed) return;
 
+            // Ensure CharacterController is enabled for normal movement
+            if (controller != null && !controller.enabled)
+            {
+                controller.enabled = true;
+            }
+
             // Get input
             float horizontal = Input.GetAxis("Horizontal");
             float vertical = Input.GetAxis("Vertical");
@@ -173,33 +179,39 @@ namespace UpWeGo
 
         void HandleBeingCarried()
         {
+            // Disable CharacterController to prevent conflicts
+            if (controller != null && controller.enabled)
+            {
+                controller.enabled = false;
+            }
+
             // Don't process input while being carried
-            if (carrier != null)
+            if (carrier != null && carrier.carryPosition != null)
             {
                 if (isLocalPlayer)
                 {
-                    // For local player being carried, use direct position from carrier (most responsive)
+                    // For local player being carried - smooth but responsive
                     Vector3 targetPosition = carrier.carryPosition.position;
                     Quaternion targetRotation = carrier.carryPosition.rotation;
                     
-                    transform.position = Vector3.Lerp(transform.position, targetPosition, localCarriedLerpSpeed * Time.deltaTime);
-                    transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, localCarriedLerpSpeed * Time.deltaTime);
+                    transform.position = Vector3.Lerp(transform.position, targetPosition, 20f * Time.deltaTime);
+                    transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 20f * Time.deltaTime);
                 }
                 else
                 {
-                    // For remote players, use predicted position for smoother movement
+                    // For remote players, use predicted position
                     Vector3 targetPosition = GetPredictedCarryPosition();
                     Quaternion targetRotation = predictedCarryRotation;
                     
-                    transform.position = Vector3.Lerp(transform.position, targetPosition, remoteCarriedLerpSpeed * Time.deltaTime);
-                    transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, remoteCarriedLerpSpeed * Time.deltaTime);
+                    transform.position = Vector3.Lerp(transform.position, targetPosition, 15f * Time.deltaTime);
+                    transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 15f * Time.deltaTime);
                 }
             }
-            else if (!isLocalPlayer)
+            else if (!isLocalPlayer && networkCarryPosition != Vector3.zero)
             {
                 // Fallback to network position if no carrier reference
-                transform.position = Vector3.Lerp(transform.position, networkCarryPosition, 10f * Time.deltaTime);
-                transform.rotation = Quaternion.Lerp(transform.rotation, networkCarryRotation, 10f * Time.deltaTime);
+                transform.position = Vector3.Lerp(transform.position, networkCarryPosition, 12f * Time.deltaTime);
+                transform.rotation = Quaternion.Lerp(transform.rotation, networkCarryRotation, 12f * Time.deltaTime);
             }
         }
 
@@ -209,6 +221,13 @@ namespace UpWeGo
             if (Time.time - tossStartTime > tossDuration)
             {
                 isBeingTossed = false;
+                
+                // Ensure CharacterController is re-enabled
+                if (controller != null && !controller.enabled)
+                {
+                    controller.enabled = true;
+                }
+                
                 Debug.Log("🏁 Toss physics ended, resuming normal movement");
                 return;
             }
@@ -224,6 +243,13 @@ namespace UpWeGo
             {
                 isBeingTossed = false;
                 velocity.y = 0; // Stop vertical movement
+                
+                // Ensure CharacterController is re-enabled for normal movement
+                if (controller != null && !controller.enabled)
+                {
+                    controller.enabled = true;
+                }
+                
                 Debug.Log("🎯 Tossed player landed!");
             }
 
@@ -383,6 +409,12 @@ namespace UpWeGo
                     carriedPlayerComponent.carrierNetId = 0;
                     carriedPlayerComponent.carrier = null;
 
+                    // Re-enable CharacterController for normal movement
+                    if (carriedPlayerComponent.controller != null)
+                    {
+                        carriedPlayerComponent.controller.enabled = true;
+                    }
+
                     // Clear our reference
                     carriedPlayerNetId = 0;
                     carriedPlayer = null;
@@ -412,6 +444,12 @@ namespace UpWeGo
                 {
                     carrierPlayer.carriedPlayer = carriedPlayerComponent;
                     carriedPlayerComponent.carrier = carrierPlayer;
+
+                    // Disable CharacterController on carried player to prevent conflicts
+                    if (carriedPlayerComponent.controller != null)
+                    {
+                        carriedPlayerComponent.controller.enabled = false;
+                    }
                 }
             }
         }
@@ -433,6 +471,18 @@ namespace UpWeGo
                     // Clear references
                     carrierPlayer.carriedPlayer = null;
                     carriedPlayerComponent.carrier = null;
+
+                    // Re-enable CharacterController on all clients
+                    if (carriedPlayerComponent.controller != null)
+                    {
+                        carriedPlayerComponent.controller.enabled = true;
+                    }
+
+                    // Re-enable CharacterController on all clients
+                    if (carriedPlayerComponent.controller != null)
+                    {
+                        carriedPlayerComponent.controller.enabled = true;
+                    }
 
                     // Apply toss effects on all clients
                     carriedPlayerComponent.transform.position = tossPosition;
@@ -469,26 +519,18 @@ namespace UpWeGo
                     networkCarryRotation = carryPosition.rotation;
                 }
 
-                // For the carrier, update the carried player directly (immediate response)
+                // For the carrier, update the carried player IMMEDIATELY (no lerp for zero lag)
                 if (isLocalPlayer)
                 {
-                    carriedPlayer.transform.position = Vector3.Lerp(
-                        carriedPlayer.transform.position, 
-                        carryPosition.position, 
-                        carrierUpdateSpeed * Time.deltaTime
-                    );
-                    
-                    carriedPlayer.transform.rotation = Quaternion.Lerp(
-                        carriedPlayer.transform.rotation, 
-                        carryPosition.rotation, 
-                        carrierUpdateSpeed * Time.deltaTime
-                    );
+                    // INSTANT position update - no lag, no interpolation
+                    carriedPlayer.transform.position = carryPosition.position;
+                    carriedPlayer.transform.rotation = carryPosition.rotation;
 
                     // Update velocity for prediction
                     UpdateCarrierVelocity();
 
-                    // Send frequent position updates to all clients for smooth movement
-                    if (Time.time - lastCarryUpdateTime > 0.02f) // 50Hz updates
+                    // Send high-frequency position updates to all clients
+                    if (Time.time - lastCarryUpdateTime > 0.016f) // 60Hz updates for smoother movement
                     {
                         RpcUpdateCarryPosition(carryPosition.position, carryPosition.rotation);
                         lastCarryUpdateTime = Time.time;
