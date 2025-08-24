@@ -61,6 +61,11 @@ namespace UpWeGo
 
         private EnhancedPlayerMovement carriedPlayer; // Reference to the player we're carrying
         private EnhancedPlayerMovement carrier; // Reference to the player carrying us
+        
+        // Component management for conflict prevention
+        private NetworkTransformBase carriedPlayerNetworkTransform;
+        private Rigidbody carriedPlayerRigidbody;
+        private bool wasRigidbodyKinematic = false;
 
         void Start()
         {
@@ -179,39 +184,31 @@ namespace UpWeGo
 
         void HandleBeingCarried()
         {
-            // Disable CharacterController to prevent conflicts
-            if (controller != null && controller.enabled)
-            {
-                controller.enabled = false;
-            }
-
+            // All conflicting components are disabled, so we have full control
             // Don't process input while being carried
             if (carrier != null && carrier.carryPosition != null)
             {
                 if (isLocalPlayer)
                 {
-                    // For local player being carried - smooth but responsive
-                    Vector3 targetPosition = carrier.carryPosition.position;
-                    Quaternion targetRotation = carrier.carryPosition.rotation;
-                    
-                    transform.position = Vector3.Lerp(transform.position, targetPosition, 20f * Time.deltaTime);
-                    transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 20f * Time.deltaTime);
+                    // For local player being carried - INSTANT position (no fighting with other systems)
+                    transform.position = carrier.carryPosition.position;
+                    transform.rotation = carrier.carryPosition.rotation;
                 }
                 else
                 {
-                    // For remote players, use predicted position
+                    // For remote players, use smooth interpolation
                     Vector3 targetPosition = GetPredictedCarryPosition();
                     Quaternion targetRotation = predictedCarryRotation;
                     
-                    transform.position = Vector3.Lerp(transform.position, targetPosition, 15f * Time.deltaTime);
-                    transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 15f * Time.deltaTime);
+                    transform.position = Vector3.Lerp(transform.position, targetPosition, 25f * Time.deltaTime);
+                    transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 25f * Time.deltaTime);
                 }
             }
             else if (!isLocalPlayer && networkCarryPosition != Vector3.zero)
             {
                 // Fallback to network position if no carrier reference
-                transform.position = Vector3.Lerp(transform.position, networkCarryPosition, 12f * Time.deltaTime);
-                transform.rotation = Quaternion.Lerp(transform.rotation, networkCarryRotation, 12f * Time.deltaTime);
+                transform.position = Vector3.Lerp(transform.position, networkCarryPosition, 20f * Time.deltaTime);
+                transform.rotation = Quaternion.Lerp(transform.rotation, networkCarryRotation, 20f * Time.deltaTime);
             }
         }
 
@@ -409,11 +406,8 @@ namespace UpWeGo
                     carriedPlayerComponent.carrierNetId = 0;
                     carriedPlayerComponent.carrier = null;
 
-                    // Re-enable CharacterController for normal movement
-                    if (carriedPlayerComponent.controller != null)
-                    {
-                        carriedPlayerComponent.controller.enabled = true;
-                    }
+                    // Restore all components for normal movement
+                    RestoreCarriedPlayerComponents(carriedPlayerComponent);
 
                     // Clear our reference
                     carriedPlayerNetId = 0;
@@ -445,11 +439,8 @@ namespace UpWeGo
                     carrierPlayer.carriedPlayer = carriedPlayerComponent;
                     carriedPlayerComponent.carrier = carrierPlayer;
 
-                    // Disable CharacterController on carried player to prevent conflicts
-                    if (carriedPlayerComponent.controller != null)
-                    {
-                        carriedPlayerComponent.controller.enabled = false;
-                    }
+                    // Completely disable all movement systems on carried player
+                    DisableCarriedPlayerComponents(carriedPlayerComponent);
                 }
             }
         }
@@ -472,17 +463,8 @@ namespace UpWeGo
                     carrierPlayer.carriedPlayer = null;
                     carriedPlayerComponent.carrier = null;
 
-                    // Re-enable CharacterController on all clients
-                    if (carriedPlayerComponent.controller != null)
-                    {
-                        carriedPlayerComponent.controller.enabled = true;
-                    }
-
-                    // Re-enable CharacterController on all clients
-                    if (carriedPlayerComponent.controller != null)
-                    {
-                        carriedPlayerComponent.controller.enabled = true;
-                    }
+                    // Restore all components on all clients
+                    RestoreCarriedPlayerComponents(carriedPlayerComponent);
 
                     // Apply toss effects on all clients
                     carriedPlayerComponent.transform.position = tossPosition;
@@ -529,8 +511,8 @@ namespace UpWeGo
                     // Update velocity for prediction
                     UpdateCarrierVelocity();
 
-                    // Send high-frequency position updates to all clients
-                    if (Time.time - lastCarryUpdateTime > 0.016f) // 60Hz updates for smoother movement
+                    // Send ultra-high-frequency position updates to all clients
+                    if (Time.time - lastCarryUpdateTime > 0.01f) // 100Hz updates for ultra-smooth movement
                     {
                         RpcUpdateCarryPosition(carryPosition.position, carryPosition.rotation);
                         lastCarryUpdateTime = Time.time;
@@ -583,6 +565,65 @@ namespace UpWeGo
             {
                 predictedCarryRotation = newRot;
             }
+        }
+
+        // Disable all components that could interfere with carrying
+        void DisableCarriedPlayerComponents(EnhancedPlayerMovement carriedPlayerComponent)
+        {
+            // Disable CharacterController
+            if (carriedPlayerComponent.controller != null)
+            {
+                carriedPlayerComponent.controller.enabled = false;
+            }
+
+            // Disable NetworkTransform to prevent position conflicts
+            NetworkTransformBase networkTransform = carriedPlayerComponent.GetComponent<NetworkTransformBase>();
+            if (networkTransform != null)
+            {
+                networkTransform.enabled = false;
+                carriedPlayerNetworkTransform = networkTransform;
+                Debug.Log("🚫 Disabled NetworkTransform to prevent position conflicts");
+            }
+
+            // Make Rigidbody kinematic to prevent physics interference
+            Rigidbody rb = carriedPlayerComponent.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                wasRigidbodyKinematic = rb.isKinematic;
+                rb.isKinematic = true;
+                carriedPlayerRigidbody = rb;
+                Debug.Log("🚫 Made Rigidbody kinematic to prevent physics conflicts");
+            }
+
+            Debug.Log($"✅ Disabled all conflicting components on {carriedPlayerComponent.name}");
+        }
+
+        // Re-enable all components when carry ends
+        void RestoreCarriedPlayerComponents(EnhancedPlayerMovement carriedPlayerComponent)
+        {
+            // Re-enable CharacterController
+            if (carriedPlayerComponent.controller != null)
+            {
+                carriedPlayerComponent.controller.enabled = true;
+            }
+
+            // Re-enable NetworkTransform
+            if (carriedPlayerNetworkTransform != null)
+            {
+                carriedPlayerNetworkTransform.enabled = true;
+                carriedPlayerNetworkTransform = null;
+                Debug.Log("✅ Re-enabled NetworkTransform");
+            }
+
+            // Restore Rigidbody kinematic state
+            if (carriedPlayerRigidbody != null)
+            {
+                carriedPlayerRigidbody.isKinematic = wasRigidbodyKinematic;
+                carriedPlayerRigidbody = null;
+                Debug.Log("✅ Restored Rigidbody kinematic state");
+            }
+
+            Debug.Log($"✅ Restored all components on {carriedPlayerComponent.name}");
         }
 
         // Calculate projectile velocity for realistic ball-throwing arc
@@ -683,6 +724,7 @@ namespace UpWeGo
         public bool IsBeingTossed => isBeingTossed;
         public Vector3 CurrentVelocity => velocity;
         public float TossStartTime => tossStartTime;
+        public EnhancedPlayerMovement Carrier => carrier;
         public string CarryStatus
         {
             get
