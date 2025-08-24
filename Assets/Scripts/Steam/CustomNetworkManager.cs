@@ -156,7 +156,32 @@ public class CustomNetworkManager : NetworkManager
     /// <param name="conn">Connection from client.</param>
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
-        base.OnServerAddPlayer(conn);
+        // Get spawn position from NetworkStartPosition components
+        Transform spawnPoint = GetStartPosition();
+        
+        if (spawnPoint != null)
+        {
+            // Spawn player at the designated spawn point
+            GameObject player = Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
+            NetworkServer.AddPlayerForConnection(conn, player);
+            
+            Debug.Log($"✅ Spawned player for {conn.connectionId} at position {spawnPoint.position}");
+        }
+        else
+        {
+            // Fallback: generate a random position if no spawn points exist
+            Vector3 randomPosition = new Vector3(
+                UnityEngine.Random.Range(-10f, 10f),
+                0f,
+                UnityEngine.Random.Range(-10f, 10f)
+            );
+            
+            GameObject player = Instantiate(playerPrefab, randomPosition, Quaternion.identity);
+            NetworkServer.AddPlayerForConnection(conn, player);
+            
+            Debug.LogWarning($"⚠️ No spawn points found! Spawned player at random position {randomPosition}");
+            Debug.LogWarning("💡 Add NetworkStartPosition components or use SpawnPointManager to fix this");
+        }
     }
 
     /// <summary>
