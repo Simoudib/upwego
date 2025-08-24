@@ -18,6 +18,11 @@ namespace UpWeGo
         public Transform carryPosition; // Where the carried player will be positioned
         public LayerMask playerLayerMask = 1; // Layer mask for detecting other players
 
+        [Header("Toss Settings")]
+        public float tossForce = 10f; // Forward force when tossing
+        public float tossUpwardForce = 5f; // Upward force when tossing
+        public float tossCooldown = 1f; // Cooldown after tossing
+
         [Header("Network Smoothing")]
         public float localCarriedLerpSpeed = 15f; // Speed for local player being carried
         public float remoteCarriedLerpSpeed = 12f; // Speed for remote players being carried
@@ -45,6 +50,7 @@ namespace UpWeGo
         private Vector3 carrierVelocity;
         private Vector3 lastCarrierPosition;
         private float lastCarryUpdateTime;
+        private float lastTossTime = 0f; // Track toss cooldown
 
         private EnhancedPlayerMovement carriedPlayer; // Reference to the player we're carrying
         private EnhancedPlayerMovement carrier; // Reference to the player carrying us
@@ -109,23 +115,29 @@ namespace UpWeGo
                 }
             }
 
-            // Handle horizontal movement
-            Vector3 moveDirection = new Vector3(horizontal, 0f, vertical).normalized;
+            // Handle horizontal movement relative to camera/player facing direction
+            Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
             
-            if (moveDirection.magnitude >= 0.1f)
+            if (inputDirection.magnitude >= 0.1f)
             {
                 // Choose speed based on running state
                 float currentSpeed = isRunning ? runSpeed : walkSpeed;
                 
-                // Apply movement
+                // Get camera forward and right directions (player is already rotated by camera)
+                Vector3 forward = transform.forward;
+                Vector3 right = transform.right;
+                
+                // Remove Y component to keep movement on horizontal plane
+                forward.y = 0;
+                right.y = 0;
+                forward.Normalize();
+                right.Normalize();
+                
+                // Calculate movement direction based on camera orientation
+                Vector3 moveDirection = (forward * inputDirection.z + right * inputDirection.x).normalized;
+                
+                // Apply movement (no rotation needed since camera already rotates the player)
                 Vector3 horizontalMovement = moveDirection * currentSpeed;
-                
-                // Rotate player to face movement direction
-                float targetAngle = Mathf.Atan2(moveDirection.x, moveDirection.z) * Mathf.Rad2Deg;
-                Quaternion targetRotation = Quaternion.Euler(0f, targetAngle, 0f);
-                transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 10f * Time.deltaTime);
-                
-                // Apply horizontal movement
                 controller.Move(horizontalMovement * Time.deltaTime);
             }
 
@@ -187,8 +199,16 @@ namespace UpWeGo
 
                 if (carriedPlayerNetId != 0)
                 {
-                    // We're carrying someone - toss them
-                    CmdTossPlayer();
+                    // We're carrying someone - toss them (with cooldown check)
+                    if (Time.time - lastTossTime >= tossCooldown)
+                    {
+                        CmdTossPlayer();
+                    }
+                    else
+                    {
+                        float remaining = tossCooldown - (Time.time - lastTossTime);
+                        Debug.Log($"⏰ Toss on cooldown! {remaining:F1}s remaining");
+                    }
                 }
                 else
                 {
@@ -280,12 +300,34 @@ namespace UpWeGo
                 return;
             }
 
+            // Check toss cooldown
+            if (Time.time - lastTossTime < tossCooldown)
+            {
+                Debug.LogWarning("Toss on cooldown!");
+                return;
+            }
+
             // Find the carried player
             if (NetworkServer.spawned.TryGetValue(carriedPlayerNetId, out NetworkIdentity carriedIdentity))
             {
                 EnhancedPlayerMovement carriedPlayerComponent = carriedIdentity.GetComponent<EnhancedPlayerMovement>();
                 if (carriedPlayerComponent != null)
                 {
+                    // Calculate toss direction (forward from carrier)
+                    Vector3 tossDirection = transform.forward;
+                    tossDirection.y = 0; // Keep horizontal
+                    tossDirection.Normalize();
+
+                    // Add upward component for arc
+                    Vector3 tossVelocity = tossDirection * tossForce + Vector3.up * tossUpwardForce;
+
+                    // Position the player slightly in front before applying velocity
+                    Vector3 tossPosition = transform.position + transform.forward * 2f + Vector3.up * 0.5f;
+                    carriedPlayerComponent.transform.position = tossPosition;
+
+                    // Apply toss velocity to carried player
+                    carriedPlayerComponent.velocity = tossVelocity;
+
                     // Clear carry relationship
                     carriedPlayerComponent.isBeingCarried = false;
                     carriedPlayerComponent.carrierNetId = 0;
@@ -294,11 +336,12 @@ namespace UpWeGo
                     // Clear our reference
                     carriedPlayerNetId = 0;
                     carriedPlayer = null;
+                    lastTossTime = Time.time;
 
-                    Debug.Log($"🚀 {gameObject.name} tossed {carriedPlayerComponent.gameObject.name}");
+                    Debug.Log($"🚀 {gameObject.name} tossed {carriedPlayerComponent.gameObject.name} with force: {tossVelocity}");
                     
-                    // Call RPC to update clients
-                    RpcOnPlayerTossed(netId, carriedIdentity.netId);
+                    // Call RPC to update clients with toss velocity
+                    RpcOnPlayerTossed(netId, carriedIdentity.netId, tossVelocity, tossPosition);
                 }
             }
         }
@@ -324,9 +367,9 @@ namespace UpWeGo
         }
 
         [ClientRpc]
-        void RpcOnPlayerTossed(uint carrierNetId, uint carriedNetId)
+        void RpcOnPlayerTossed(uint carrierNetId, uint carriedNetId, Vector3 tossVelocity, Vector3 tossPosition)
         {
-            Debug.Log($"🚀 RPC: Player tossed - Carrier: {carrierNetId}, Carried: {carriedNetId}");
+            Debug.Log($"🚀 RPC: Player tossed - Carrier: {carrierNetId}, Carried: {carriedNetId}, Velocity: {tossVelocity}");
             
             // Clear local references for all clients
             if (NetworkClient.spawned.TryGetValue(carrierNetId, out NetworkIdentity carrierIdentity) &&
@@ -337,8 +380,15 @@ namespace UpWeGo
 
                 if (carrierPlayer != null && carriedPlayerComponent != null)
                 {
+                    // Clear references
                     carrierPlayer.carriedPlayer = null;
                     carriedPlayerComponent.carrier = null;
+
+                    // Apply toss effects on all clients
+                    carriedPlayerComponent.transform.position = tossPosition;
+                    carriedPlayerComponent.velocity = tossVelocity;
+                    
+                    Debug.Log($"✅ Applied toss: Position={tossPosition}, Velocity={tossVelocity}");
                 }
             }
         }

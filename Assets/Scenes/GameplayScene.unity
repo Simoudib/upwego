@@ -409,11 +409,11 @@ MonoBehaviour:
   generateSpawnPoints: 1
   numberOfSpawnPoints: 8
   spawnRadius: 4
-  centerPoint: {x: 0, y: 1, z: 0}
+  centerPoint: {x: 0, y: 1.5, z: 0}
   avoidObstacles: 1
   obstacleLayerMask:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 0
   manualSpawnPoints: []
   showGizmos: 1
   spawnPointColor: {r: 0, g: 1, b: 0, a: 1}
