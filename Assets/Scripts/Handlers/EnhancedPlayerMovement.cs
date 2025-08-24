@@ -18,6 +18,12 @@ namespace UpWeGo
         public Transform carryPosition; // Where the carried player will be positioned
         public LayerMask playerLayerMask = 1; // Layer mask for detecting other players
 
+        [Header("Network Smoothing")]
+        public float localCarriedLerpSpeed = 15f; // Speed for local player being carried
+        public float remoteCarriedLerpSpeed = 12f; // Speed for remote players being carried
+        public float carrierUpdateSpeed = 15f; // Speed for carrier updating carried player
+        public float predictionStrength = 0.5f; // How much prediction to apply (0-1)
+
         [Header("Debug")]
         public bool showCarryRadius = true;
 
@@ -30,8 +36,15 @@ namespace UpWeGo
         [SyncVar] private uint carriedPlayerNetId = 0; // NetworkInstanceId of the player we're carrying
 
         // Network sync for position when being carried
-        [SyncVar] private Vector3 networkCarryPosition;
-        [SyncVar] private Quaternion networkCarryRotation;
+        [SyncVar(hook = nameof(OnCarryPositionChanged))] private Vector3 networkCarryPosition;
+        [SyncVar(hook = nameof(OnCarryRotationChanged))] private Quaternion networkCarryRotation;
+        
+        // Prediction and interpolation for smooth carry movement
+        private Vector3 predictedCarryPosition;
+        private Quaternion predictedCarryRotation;
+        private Vector3 carrierVelocity;
+        private Vector3 lastCarrierPosition;
+        private float lastCarryUpdateTime;
 
         private EnhancedPlayerMovement carriedPlayer; // Reference to the player we're carrying
         private EnhancedPlayerMovement carrier; // Reference to the player carrying us
@@ -132,15 +145,32 @@ namespace UpWeGo
         void HandleBeingCarried()
         {
             // Don't process input while being carried
-            // Position will be updated by the carrier
             if (carrier != null)
             {
-                // Smoothly move to the carry position
-                Vector3 targetPosition = carrier.carryPosition.position;
-                Quaternion targetRotation = carrier.carryPosition.rotation;
-                
-                transform.position = Vector3.Lerp(transform.position, targetPosition, 10f * Time.deltaTime);
-                transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 10f * Time.deltaTime);
+                if (isLocalPlayer)
+                {
+                    // For local player being carried, use direct position from carrier (most responsive)
+                    Vector3 targetPosition = carrier.carryPosition.position;
+                    Quaternion targetRotation = carrier.carryPosition.rotation;
+                    
+                    transform.position = Vector3.Lerp(transform.position, targetPosition, localCarriedLerpSpeed * Time.deltaTime);
+                    transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, localCarriedLerpSpeed * Time.deltaTime);
+                }
+                else
+                {
+                    // For remote players, use predicted position for smoother movement
+                    Vector3 targetPosition = GetPredictedCarryPosition();
+                    Quaternion targetRotation = predictedCarryRotation;
+                    
+                    transform.position = Vector3.Lerp(transform.position, targetPosition, remoteCarriedLerpSpeed * Time.deltaTime);
+                    transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, remoteCarriedLerpSpeed * Time.deltaTime);
+                }
+            }
+            else if (!isLocalPlayer)
+            {
+                // Fallback to network position if no carrier reference
+                transform.position = Vector3.Lerp(transform.position, networkCarryPosition, 10f * Time.deltaTime);
+                transform.rotation = Quaternion.Lerp(transform.rotation, networkCarryRotation, 10f * Time.deltaTime);
             }
         }
 
@@ -313,22 +343,99 @@ namespace UpWeGo
             }
         }
 
+        [ClientRpc]
+        void RpcUpdateCarryPosition(Vector3 newPosition, Quaternion newRotation)
+        {
+            // Update the carried player's position for all clients with high frequency
+            if (carriedPlayer != null && !isLocalPlayer) // Don't override local player's position
+            {
+                predictedCarryPosition = newPosition;
+                predictedCarryRotation = newRotation;
+            }
+        }
+
         void UpdateCarriedPlayerPosition()
         {
             if (carriedPlayer != null && carryPosition != null)
             {
-                // Smoothly update the carried player's position
-                carriedPlayer.transform.position = Vector3.Lerp(
-                    carriedPlayer.transform.position, 
-                    carryPosition.position, 
-                    10f * Time.deltaTime
-                );
-                
-                carriedPlayer.transform.rotation = Quaternion.Lerp(
-                    carriedPlayer.transform.rotation, 
-                    carryPosition.rotation, 
-                    10f * Time.deltaTime
-                );
+                // Update network carry position for synchronization
+                if (isServer)
+                {
+                    networkCarryPosition = carryPosition.position;
+                    networkCarryRotation = carryPosition.rotation;
+                }
+
+                // For the carrier, update the carried player directly (immediate response)
+                if (isLocalPlayer)
+                {
+                    carriedPlayer.transform.position = Vector3.Lerp(
+                        carriedPlayer.transform.position, 
+                        carryPosition.position, 
+                        carrierUpdateSpeed * Time.deltaTime
+                    );
+                    
+                    carriedPlayer.transform.rotation = Quaternion.Lerp(
+                        carriedPlayer.transform.rotation, 
+                        carryPosition.rotation, 
+                        carrierUpdateSpeed * Time.deltaTime
+                    );
+
+                    // Update velocity for prediction
+                    UpdateCarrierVelocity();
+
+                    // Send frequent position updates to all clients for smooth movement
+                    if (Time.time - lastCarryUpdateTime > 0.02f) // 50Hz updates
+                    {
+                        RpcUpdateCarryPosition(carryPosition.position, carryPosition.rotation);
+                        lastCarryUpdateTime = Time.time;
+                    }
+                }
+            }
+        }
+
+        void UpdateCarrierVelocity()
+        {
+            if (carrier != null && Time.time > lastCarryUpdateTime)
+            {
+                // Calculate carrier velocity for prediction
+                float deltaTime = Time.time - lastCarryUpdateTime;
+                if (deltaTime > 0)
+                {
+                    carrierVelocity = (carrier.transform.position - lastCarrierPosition) / deltaTime;
+                    lastCarrierPosition = carrier.transform.position;
+                    lastCarryUpdateTime = Time.time;
+                }
+            }
+        }
+
+        Vector3 GetPredictedCarryPosition()
+        {
+            if (carrier == null) return networkCarryPosition;
+
+            // Use carrier's current position plus prediction based on velocity
+            float timeSinceLastUpdate = Time.time - lastCarryUpdateTime;
+            Vector3 predictedCarrierPos = carrier.transform.position + (carrierVelocity * timeSinceLastUpdate * predictionStrength);
+            
+            // Calculate relative position from carrier to carry position
+            Vector3 relativeCarryPos = carrier.carryPosition.position - carrier.transform.position;
+            
+            return predictedCarrierPos + relativeCarryPos;
+        }
+
+        // SyncVar hooks for smooth interpolation
+        void OnCarryPositionChanged(Vector3 oldPos, Vector3 newPos)
+        {
+            if (!isLocalPlayer && isBeingCarried)
+            {
+                predictedCarryPosition = newPos;
+            }
+        }
+
+        void OnCarryRotationChanged(Quaternion oldRot, Quaternion newRot)
+        {
+            if (!isLocalPlayer && isBeingCarried)
+            {
+                predictedCarryRotation = newRot;
             }
         }
 
