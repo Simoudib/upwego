@@ -49,6 +49,7 @@ GameObject:
   - component: {fileID: -3210418226473894053}
   - component: {fileID: 8853302568263551388}
   - component: {fileID: 2982419264284401985}
+  - component: {fileID: 1723349816140568674}
   m_Layer: 0
   m_Name: MainPlayer
   m_TagString: Untagged
@@ -306,3 +307,21 @@ MonoBehaviour:
   carrierUpdateSpeed: 15
   predictionStrength: 0.5
   showCarryRadius: 1
+  debugTossPhysics: 1
+--- !u!114 &1723349816140568674
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9116018603971173128}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab7a3aa78bbb916468bc60b017b617c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  showDebugUI: 1
+  logTossEvents: 1

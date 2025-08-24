@@ -32,6 +32,7 @@ namespace UpWeGo
 
         [Header("Debug")]
         public bool showCarryRadius = true;
+        public bool debugTossPhysics = true;
 
         private CharacterController controller;
         private Vector3 velocity = Vector3.zero;
@@ -52,6 +53,11 @@ namespace UpWeGo
         private Vector3 lastCarrierPosition;
         private float lastCarryUpdateTime;
         private float lastTossTime = 0f; // Track toss cooldown
+        
+        // Toss state management
+        private bool isBeingTossed = false;
+        private float tossStartTime = 0f;
+        private float tossDuration = 3f; // How long toss physics should last
 
         private EnhancedPlayerMovement carriedPlayer; // Reference to the player we're carrying
         private EnhancedPlayerMovement carrier; // Reference to the player carrying us
@@ -77,6 +83,13 @@ namespace UpWeGo
             // Handle carry input
             HandleCarryInput();
 
+            // Handle toss physics state first
+            if (isBeingTossed)
+            {
+                HandleTossPhysics();
+                return; // Don't process other movement while being tossed
+            }
+
             // Only handle movement if not being carried
             if (!isBeingCarried)
             {
@@ -90,6 +103,9 @@ namespace UpWeGo
 
         void HandleMovement()
         {
+            // Don't handle movement if being tossed
+            if (isBeingTossed) return;
+
             // Get input
             float horizontal = Input.GetAxis("Horizontal");
             float vertical = Input.GetAxis("Vertical");
@@ -184,6 +200,36 @@ namespace UpWeGo
                 // Fallback to network position if no carrier reference
                 transform.position = Vector3.Lerp(transform.position, networkCarryPosition, 10f * Time.deltaTime);
                 transform.rotation = Quaternion.Lerp(transform.rotation, networkCarryRotation, 10f * Time.deltaTime);
+            }
+        }
+
+        void HandleTossPhysics()
+        {
+            // Check if toss duration has elapsed
+            if (Time.time - tossStartTime > tossDuration)
+            {
+                isBeingTossed = false;
+                Debug.Log("🏁 Toss physics ended, resuming normal movement");
+                return;
+            }
+
+            // Apply gravity manually during toss
+            velocity.y -= gravity * Time.deltaTime;
+
+            // Move the character using velocity (pure physics)
+            controller.Move(velocity * Time.deltaTime);
+
+            // Check if we hit the ground
+            if (controller.isGrounded && velocity.y <= 0)
+            {
+                isBeingTossed = false;
+                velocity.y = 0; // Stop vertical movement
+                Debug.Log("🎯 Tossed player landed!");
+            }
+
+            if (debugTossPhysics)
+            {
+                Debug.Log($"🚀 Toss physics: velocity={velocity}, grounded={controller.isGrounded}");
             }
         }
 
@@ -328,6 +374,10 @@ namespace UpWeGo
                     // Apply toss velocity to carried player
                     carriedPlayerComponent.velocity = tossVelocity;
 
+                    // Activate toss physics state
+                    carriedPlayerComponent.isBeingTossed = true;
+                    carriedPlayerComponent.tossStartTime = Time.time;
+
                     // Clear carry relationship
                     carriedPlayerComponent.isBeingCarried = false;
                     carriedPlayerComponent.carrierNetId = 0;
@@ -387,6 +437,10 @@ namespace UpWeGo
                     // Apply toss effects on all clients
                     carriedPlayerComponent.transform.position = tossPosition;
                     carriedPlayerComponent.velocity = tossVelocity;
+                    
+                    // Activate toss physics state on all clients
+                    carriedPlayerComponent.isBeingTossed = true;
+                    carriedPlayerComponent.tossStartTime = Time.time;
                     
                     Debug.Log($"✅ Applied toss: Position={tossPosition}, Velocity={tossVelocity}");
                 }
@@ -584,6 +638,9 @@ namespace UpWeGo
         // Public properties for UI/debugging
         public bool IsCarrying => carriedPlayerNetId != 0;
         public bool IsBeingCarried => isBeingCarried;
+        public bool IsBeingTossed => isBeingTossed;
+        public Vector3 CurrentVelocity => velocity;
+        public float TossStartTime => tossStartTime;
         public string CarryStatus
         {
             get
