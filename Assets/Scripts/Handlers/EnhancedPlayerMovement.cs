@@ -331,6 +331,12 @@ namespace UpWeGo
             
             // Update animations
             UpdateAnimations(isMoving, isRunning, isGrounded, jump, isCrouching, isCarryingSomeone, isBeingCarried);
+            
+            // Sync animations across network
+            if (isLocalPlayer)
+            {
+                CmdSyncAnimations(isMoving, isRunning, isGrounded, jump, isCrouching, isCarryingSomeone, isBeingCarried);
+            }
 
             // Apply gravity
             velocity.y -= gravity * Time.deltaTime;
@@ -919,6 +925,23 @@ namespace UpWeGo
             }
         }
 
+        [Command]
+        void CmdSyncAnimations(bool isMoving, bool isRunning, bool isGrounded, bool jump, bool isCrouching, bool isCarrying, bool isBeingCarried)
+        {
+            // Send animation state to all clients
+            RpcSyncAnimations(isMoving, isRunning, isGrounded, jump, isCrouching, isCarrying, isBeingCarried);
+        }
+
+        [ClientRpc]
+        void RpcSyncAnimations(bool isMoving, bool isRunning, bool isGrounded, bool jump, bool isCrouching, bool isCarrying, bool isBeingCarried)
+        {
+            // Don't override local player's animations
+            if (isLocalPlayer) return;
+            
+            // Update animations for other players
+            UpdateAnimations(isMoving, isRunning, isGrounded, jump, isCrouching, isCarrying, isBeingCarried);
+        }
+
         void UpdateAnimations(bool isMoving, bool isRunning, bool isGrounded, bool jumpPressed, bool crouching, bool carrying, bool beingCarried)
         {
             if (!useAnimations || animator == null) return;
@@ -984,12 +1007,12 @@ namespace UpWeGo
                     if (isMoving)
                     {
                         animator.SetFloat("Speed", walkSpeed); // Carry walking speed
-                        if (stateChanged) Debug.Log($"🤝 Setting animation: CARRY WALKING (Speed={walkSpeed})");
+                        Debug.Log($"🤝 CARRY WALKING - StateChanged: {stateChanged}, Moving: {isMoving}, Speed: {walkSpeed}, IsCarrying param: {animator.GetBool("IsCarrying")}");
                     }
                     else
                     {
                         animator.SetFloat("Speed", 0f);
-                        if (stateChanged) Debug.Log($"🤝 Setting animation: CARRY IDLE");
+                        Debug.Log($"🤝 CARRY IDLE - StateChanged: {stateChanged}, IsCarrying param: {animator.GetBool("IsCarrying")}");
                     }
                 }
                 else if (crouching)
