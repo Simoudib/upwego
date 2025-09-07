@@ -9,6 +9,7 @@ namespace UpWeGo
         [Header("Movement Settings")]
         public float walkSpeed = 5f;
         public float runSpeed = 10f;
+        public float crouchSpeed = 2f;
         public float jumpForce = 8f;
         public float gravity = 20f;
 
@@ -30,12 +31,49 @@ namespace UpWeGo
         public float carrierUpdateSpeed = 15f; // Speed for carrier updating carried player
         public float predictionStrength = 0.5f; // How much prediction to apply (0-1)
 
+        [Header("Animation")]
+        public bool useAnimations = true;
+        public string runningAnimationName = "Running"; // Name of your Mixamo running animation
+        public string walkingAnimationName = "Walking"; // Name of your Mixamo walking animation
+        public string jumpingAnimationName = "Jumping"; // Name of your Mixamo jumping animation
+        public string idleAnimationName = "Idle"; // Name of your idle animation (optional)
+        public string crouchIdleAnimationName = "CrouchIdle"; // Name of your crouch idle animation
+        public string crouchWalkingAnimationName = "CrouchWalking"; // Name of your crouch walking animation
+        public string carryIdleAnimationName = "CarryIdle"; // Name of your carry idle animation
+        public string carryWalkingAnimationName = "CarryWalking"; // Name of your carry walking animation
+        public string beingCarriedIdleAnimationName = "BeingCarriedIdle"; // Name of being carried idle animation
+        public string throwingAnimationName = "Throwing"; // Name of your throwing animation
+        
+        [Header("Crouch Settings")]
+        public KeyCode crouchKey = KeyCode.LeftControl;
+        public float standingHeight = 2f;
+        public float crouchingHeight = 1f;
+        public float standingRadius = 0.5f;
+        public float crouchingRadius = 0.5f;
+        
         [Header("Debug")]
         public bool showCarryRadius = true;
         public bool debugTossPhysics = true;
 
         private CharacterController controller;
         private Vector3 velocity = Vector3.zero;
+        private Animator animator;
+        
+        // Animation state tracking
+        private bool lastIsRunning = false;
+        private bool lastIsMoving = false;
+        private bool lastIsJumping = false;
+        private bool lastIsGrounded = true;
+        private bool lastIsCrouching = false;
+        private bool lastIsCarrying = false;
+        private bool lastIsBeingCarried = false;
+        private bool lastIsThrowing = false;
+        
+        // Crouch system
+        private bool isCrouching = false;
+        private float originalHeight;
+        private float originalRadius;
+        private Vector3 originalCenter;
 
         // Carry system variables
         [SyncVar] private bool isBeingCarried = false;
@@ -71,6 +109,33 @@ namespace UpWeGo
         {
             controller = GetComponent<CharacterController>();
             
+            // Store original controller dimensions for crouch system
+            if (controller != null)
+            {
+                originalHeight = controller.height;
+                originalRadius = controller.radius;
+                originalCenter = controller.center;
+                
+                // Set default values if not configured
+                if (standingHeight == 0) standingHeight = originalHeight;
+                if (standingRadius == 0) standingRadius = originalRadius;
+            }
+            
+            // Try to find Animator component (on this GameObject or in children)
+            animator = GetComponent<Animator>();
+            if (animator == null)
+            {
+                animator = GetComponentInChildren<Animator>();
+                if (animator != null)
+                {
+                    Debug.Log($"🔍 Found Animator on child GameObject: {animator.gameObject.name}");
+                }
+            }
+            else
+            {
+                Debug.Log($"🔍 Found Animator on main GameObject: {animator.gameObject.name}");
+            }
+            
             // Auto-create carry position if not assigned
             if (carryPosition == null)
             {
@@ -78,6 +143,57 @@ namespace UpWeGo
                 carryPos.transform.SetParent(transform);
                 carryPos.transform.localPosition = new Vector3(0f, 1.5f, 1f); // Above and in front
                 carryPosition = carryPos.transform;
+            }
+            
+            // Check if animator is set up correctly
+            if (useAnimations && animator == null)
+            {
+                Debug.LogWarning($"⚠️ {gameObject.name}: useAnimations is enabled but no Animator component found! Please add an Animator component to this GameObject or its children.");
+            }
+            else if (useAnimations && animator != null)
+            {
+                Debug.Log($"✅ {gameObject.name}: Animator found and ready for animations!");
+                Debug.Log($"🎯 Animator is on GameObject: {animator.gameObject.name}");
+                Debug.Log($"🎮 Animator Controller: {(animator.runtimeAnimatorController != null ? animator.runtimeAnimatorController.name : "NULL - PLEASE ASSIGN CONTROLLER!")}");
+                Debug.Log($"👤 Avatar: {(animator.avatar != null ? animator.avatar.name : "NULL - AVATAR MISSING!")}");
+                
+                // Check avatar configuration
+                if (animator.avatar == null)
+                {
+                    Debug.LogWarning("⚠️ No Avatar assigned! For humanoid animations, you need to assign an Avatar to the Animator.");
+                }
+                
+                // Check if the animator has the required parameters
+                bool hasIsRunning = false;
+                bool hasSpeed = false;
+                bool hasIsJumping = false;
+                bool hasIsGrounded = false;
+                bool hasIsCrouching = false;
+                bool hasIsCarrying = false;
+                bool hasIsBeingCarried = false;
+                bool hasIsThrowing = false;
+                for (int i = 0; i < animator.parameterCount; i++)
+                {
+                    AnimatorControllerParameter param = animator.GetParameter(i);
+                    if (param.name == "IsRunning") hasIsRunning = true;
+                    if (param.name == "Speed") hasSpeed = true;
+                    if (param.name == "IsJumping") hasIsJumping = true;
+                    if (param.name == "IsGrounded") hasIsGrounded = true;
+                    if (param.name == "IsCrouching") hasIsCrouching = true;
+                    if (param.name == "IsCarrying") hasIsCarrying = true;
+                    if (param.name == "IsBeingCarried") hasIsBeingCarried = true;
+                    if (param.name == "IsThrowing") hasIsThrowing = true;
+                    Debug.Log($"📊 Animator Parameter: {param.name} ({param.type})");
+                }
+                
+                if (!hasIsRunning) Debug.LogError("❌ Missing 'IsRunning' parameter in Animator Controller!");
+                if (!hasSpeed) Debug.LogError("❌ Missing 'Speed' parameter in Animator Controller!");
+                if (!hasIsJumping) Debug.LogError("❌ Missing 'IsJumping' parameter in Animator Controller!");
+                if (!hasIsGrounded) Debug.LogError("❌ Missing 'IsGrounded' parameter in Animator Controller!");
+                if (!hasIsCrouching) Debug.LogError("❌ Missing 'IsCrouching' parameter in Animator Controller!");
+                if (!hasIsCarrying) Debug.LogError("❌ Missing 'IsCarrying' parameter in Animator Controller!");
+                if (!hasIsBeingCarried) Debug.LogError("❌ Missing 'IsBeingCarried' parameter in Animator Controller!");
+                if (!hasIsThrowing) Debug.LogError("❌ Missing 'IsThrowing' parameter in Animator Controller!");
             }
         }
 
@@ -122,6 +238,43 @@ namespace UpWeGo
             float vertical = Input.GetAxis("Vertical");
             bool isRunning = Input.GetKey(KeyCode.LeftShift);
             bool jump = Input.GetButtonDown("Jump");
+            bool crouchInput = Input.GetKey(crouchKey);
+            
+            // Check if we're carrying someone (restrict actions)
+            bool isCarryingSomeone = (carriedPlayerNetId != 0);
+            
+            // Apply carry restrictions
+            if (isCarryingSomeone)
+            {
+                isRunning = false; // Can't sprint while carrying
+                jump = false; // Can't jump while carrying
+                crouchInput = false; // Can't crouch while carrying
+                
+                if (jump && Input.GetButtonDown("Jump"))
+                {
+                    Debug.Log("❌ Can't jump while carrying someone!");
+                }
+                if (Input.GetKey(KeyCode.LeftShift))
+                {
+                    Debug.Log("❌ Can't sprint while carrying someone!");
+                }
+                if (Input.GetKey(crouchKey))
+                {
+                    Debug.Log("❌ Can't crouch while carrying someone!");
+                }
+            }
+            
+            // Handle crouching (only if not carrying)
+            if (!isCarryingSomeone)
+            {
+                HandleCrouching(crouchInput);
+            }
+            
+            // Debug input detection
+            if (horizontal != 0 || vertical != 0 || isRunning || crouchInput)
+            {
+                Debug.Log($"🎮 Input detected - H: {horizontal:F2}, V: {vertical:F2}, Shift: {isRunning}, Crouch: {crouchInput}");
+            }
 
             // Check if grounded
             bool isGrounded = controller.isGrounded;
@@ -145,11 +298,24 @@ namespace UpWeGo
 
             // Handle horizontal movement relative to camera/player facing direction
             Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+            bool isMoving = inputDirection.magnitude >= 0.1f;
             
-            if (inputDirection.magnitude >= 0.1f)
+            if (isMoving)
             {
-                // Choose speed based on running state
-                float currentSpeed = isRunning ? runSpeed : walkSpeed;
+                // Choose speed based on movement state (crouch overrides running)
+                float currentSpeed;
+                if (isCrouching)
+                {
+                    currentSpeed = crouchSpeed; // Crouching is slowest
+                }
+                else if (isRunning)
+                {
+                    currentSpeed = runSpeed; // Running is fastest
+                }
+                else
+                {
+                    currentSpeed = walkSpeed; // Walking is normal speed
+                }
                 
                 // Get camera forward and right directions (player is already rotated by camera)
                 Vector3 forward = transform.forward;
@@ -168,6 +334,9 @@ namespace UpWeGo
                 Vector3 horizontalMovement = moveDirection * currentSpeed;
                 controller.Move(horizontalMovement * Time.deltaTime);
             }
+            
+            // Update animations
+            UpdateAnimations(isMoving, isRunning, isGrounded, jump, isCrouching, isCarryingSomeone, isBeingCarried);
 
             // Apply gravity
             velocity.y -= gravity * Time.deltaTime;
@@ -272,6 +441,13 @@ namespace UpWeGo
                     // We're carrying someone - toss them (with cooldown check)
                     if (Time.time - lastTossTime >= tossCooldown)
                     {
+                        // Start throw animation
+                        if (animator != null)
+                        {
+                            animator.SetBool("IsThrowing", true);
+                            Debug.Log("🎯 Starting throw animation!");
+                        }
+                        
                         CmdTossPlayer();
                     }
                     else
@@ -474,7 +650,25 @@ namespace UpWeGo
                     carriedPlayerComponent.isBeingTossed = true;
                     carriedPlayerComponent.tossStartTime = Time.time;
                     
+                    // Start jump animation for thrown player (they're being thrown through the air)
+                    if (carriedPlayerComponent.animator != null)
+                    {
+                        carriedPlayerComponent.animator.SetBool("IsJumping", true);
+                        carriedPlayerComponent.animator.SetBool("IsGrounded", false);
+                        carriedPlayerComponent.animator.SetBool("IsBeingCarried", false);
+                        Debug.Log("🎯 Thrown player: Starting jump animation!");
+                    }
+                    
                     Debug.Log($"✅ Applied toss: Position={tossPosition}, Velocity={tossVelocity}");
+                }
+                
+                // If this is the carrier, reset throw animation after delay
+                if (carrierPlayer != null && carrierPlayer.netId == carrierNetId)
+                {
+                    if (carrierPlayer.animator != null)
+                    {
+                        carrierPlayer.StartCoroutine(carrierPlayer.ResetThrowAnimationAfterDelay(0.8f));
+                    }
                 }
             }
         }
@@ -624,6 +818,227 @@ namespace UpWeGo
             }
 
             Debug.Log($"✅ Restored all components on {carriedPlayerComponent.name}");
+        }
+
+        void HandleCrouching(bool crouchInput)
+        {
+            bool wasCrouching = isCrouching;
+            isCrouching = crouchInput;
+            
+            // Only update controller if crouch state changed
+            if (wasCrouching != isCrouching)
+            {
+                UpdateControllerHeight();
+                
+                if (isCrouching)
+                {
+                    Debug.Log($"🦆 Started crouching - Height: {controller.height}, Radius: {controller.radius}");
+                }
+                else
+                {
+                    Debug.Log($"🧍 Stopped crouching - Height: {controller.height}, Radius: {controller.radius}");
+                }
+            }
+        }
+
+        void UpdateControllerHeight()
+        {
+            if (controller == null) return;
+            
+            if (isCrouching)
+            {
+                // Switch to crouching dimensions
+                controller.height = crouchingHeight;
+                controller.radius = crouchingRadius;
+                
+                // Adjust center to keep feet on ground
+                // When crouching, the center moves down by half the height difference
+                float heightDifference = standingHeight - crouchingHeight;
+                controller.center = new Vector3(originalCenter.x, originalCenter.y - heightDifference * 0.5f, originalCenter.z);
+            }
+            else
+            {
+                // Check if there's enough space to stand up
+                if (CanStandUp())
+                {
+                    // Switch back to standing dimensions
+                    controller.height = standingHeight;
+                    controller.radius = standingRadius;
+                    controller.center = originalCenter;
+                }
+                else
+                {
+                    // Force stay crouched if there's not enough space
+                    isCrouching = true;
+                    Debug.Log("⚠️ Can't stand up - not enough space above!");
+                }
+            }
+        }
+
+        bool CanStandUp()
+        {
+            if (controller == null) return true;
+            
+            // Cast a sphere upward to check for obstacles
+            Vector3 currentTop = transform.position + Vector3.up * (crouchingHeight * 0.5f);
+            Vector3 standingTop = transform.position + Vector3.up * (standingHeight * 0.5f);
+            
+            float checkDistance = standingHeight - crouchingHeight;
+            
+            // Use SphereCast to check if there's space to stand up
+            return !Physics.SphereCast(currentTop, controller.radius * 0.9f, Vector3.up, out RaycastHit hit, checkDistance);
+        }
+
+        System.Collections.IEnumerator ResetThrowAnimationAfterDelay(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (animator != null)
+            {
+                animator.SetBool("IsThrowing", false);
+                Debug.Log("🎯 Throw animation completed - resetting to normal state");
+            }
+        }
+
+        void UpdateAnimations(bool isMoving, bool isRunning, bool isGrounded, bool jumpPressed, bool crouching, bool carrying, bool beingCarried)
+        {
+            if (!useAnimations || animator == null) return;
+
+            // Check current throwing state
+            bool isThrowing = animator.GetBool("IsThrowing");
+
+            // Check if state changed to only log when changing
+            bool stateChanged = (isRunning != lastIsRunning) || (isMoving != lastIsMoving) || 
+                              (isGrounded != lastIsGrounded) || jumpPressed || (crouching != lastIsCrouching) ||
+                              (carrying != lastIsCarrying) || (beingCarried != lastIsBeingCarried) || 
+                              (isThrowing != lastIsThrowing);
+
+            // Handle jumping first (highest priority)
+            if (jumpPressed && isGrounded)
+            {
+                animator.SetBool("IsJumping", true);
+                animator.SetBool("IsGrounded", false);
+                if (stateChanged) Debug.Log($"🦘 Setting animation: JUMPING!");
+            }
+            else if (!isGrounded)
+            {
+                // Still in air
+                animator.SetBool("IsJumping", true);
+                animator.SetBool("IsGrounded", false);
+            }
+            else if (isGrounded && !lastIsGrounded)
+            {
+                // Just landed
+                animator.SetBool("IsJumping", false);
+                animator.SetBool("IsGrounded", true);
+                if (stateChanged) Debug.Log($"🎯 Setting animation: LANDED!");
+            }
+            else
+            {
+                // Normal grounded movement
+                animator.SetBool("IsJumping", false);
+                animator.SetBool("IsGrounded", true);
+                
+                // Set all state parameters
+                animator.SetBool("IsCrouching", crouching);
+                animator.SetBool("IsCarrying", carrying);
+                animator.SetBool("IsBeingCarried", beingCarried);
+                
+                if (isThrowing)
+                {
+                    // Throwing state (highest priority for active actions)
+                    animator.SetBool("IsRunning", false);
+                    animator.SetFloat("Speed", 0f);
+                    if (stateChanged) Debug.Log($"🎯 Setting animation: THROWING");
+                }
+                else if (beingCarried)
+                {
+                    // Being carried state (second highest priority - only idle animation)
+                    animator.SetBool("IsRunning", false);
+                    animator.SetFloat("Speed", 0f);
+                    if (stateChanged) Debug.Log($"🎒 Setting animation: BEING CARRIED IDLE");
+                }
+                else if (carrying)
+                {
+                    // Carrying state (third highest priority)
+                    animator.SetBool("IsRunning", false);
+                    if (isMoving)
+                    {
+                        animator.SetFloat("Speed", walkSpeed); // Carry walking speed
+                        if (stateChanged) Debug.Log($"🤝 Setting animation: CARRY WALKING (Speed={walkSpeed})");
+                    }
+                    else
+                    {
+                        animator.SetFloat("Speed", 0f);
+                        if (stateChanged) Debug.Log($"🤝 Setting animation: CARRY IDLE");
+                    }
+                }
+                else if (crouching)
+                {
+                    // Crouching state (third priority for ground movement)
+                    animator.SetBool("IsRunning", false);
+                    if (isMoving)
+                    {
+                        animator.SetFloat("Speed", crouchSpeed);
+                        if (stateChanged) Debug.Log($"🦆 Setting animation: CROUCH WALKING (Speed={crouchSpeed})");
+                    }
+                    else
+                    {
+                        animator.SetFloat("Speed", 0f);
+                        if (stateChanged) Debug.Log($"🦆 Setting animation: CROUCH IDLE");
+                    }
+                }
+                else if (isMoving && isRunning)
+                {
+                    // Player is moving and sprinting - play running animation
+                    animator.SetBool("IsRunning", true);
+                    animator.SetFloat("Speed", runSpeed);
+                    if (stateChanged) Debug.Log($"🏃 Setting animation: RUNNING (Speed={runSpeed})");
+                }
+                else if (isMoving)
+                {
+                    // Player is moving but not sprinting - play walking animation
+                    animator.SetBool("IsRunning", false);
+                    animator.SetFloat("Speed", walkSpeed);
+                    if (stateChanged) Debug.Log($"🚶 Setting animation: WALKING (Speed={walkSpeed})");
+                }
+                else
+                {
+                    // Player is not moving - idle
+                    animator.SetBool("IsRunning", false);
+                    animator.SetFloat("Speed", 0f);
+                    if (stateChanged) Debug.Log($"🧍 Setting animation: IDLE");
+                }
+            }
+            
+            lastIsRunning = isRunning;
+            lastIsMoving = isMoving;
+            lastIsJumping = jumpPressed;
+            lastIsGrounded = isGrounded;
+            lastIsCrouching = crouching;
+            lastIsCarrying = carrying;
+            lastIsBeingCarried = beingCarried;
+            lastIsThrowing = isThrowing;
+            
+            // Additional debug info
+            if (animator.runtimeAnimatorController == null)
+            {
+                Debug.LogError("❌ Animator Controller is NULL! Please assign PlayerAnimatorController to the Animator component.");
+            }
+            
+            // Log current animator state info (but not too frequently to avoid spam)
+            if (animator.layerCount > 0 && Time.time % 1.0f < 0.1f) // Only log every second
+            {
+                AnimatorStateInfo currentState = animator.GetCurrentAnimatorStateInfo(0);
+                string stateName = "Unknown";
+                
+                // Try to identify the state name from common hashes
+                if (currentState.IsName("Idle")) stateName = "Idle";
+                else if (currentState.IsName("Running")) stateName = "Running";
+                else if (currentState.IsName("Base Layer.Idle")) stateName = "Idle";
+                else if (currentState.IsName("Base Layer.Running")) stateName = "Running";
+                
+                Debug.Log($"🎭 Current Animator State: {stateName} (Hash: {currentState.shortNameHash}, IsRunning: {animator.GetBool("IsRunning")}, Speed: {animator.GetFloat("Speed")})");
+            }
         }
 
         // Calculate projectile velocity for realistic ball-throwing arc
