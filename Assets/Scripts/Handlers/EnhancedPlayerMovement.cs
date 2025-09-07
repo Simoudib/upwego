@@ -240,6 +240,8 @@ namespace UpWeGo
             bool jump = Input.GetButtonDown("Jump");
             bool crouchInput = Input.GetKey(crouchKey);
             
+            // Clean debug - only essential info
+            
             // Check if we're carrying someone (restrict actions)
             bool isCarryingSomeone = (carriedPlayerNetId != 0);
             
@@ -248,7 +250,6 @@ namespace UpWeGo
             {
                 isRunning = false; // Can't sprint while carrying
                 jump = false; // Can't jump while carrying
-                crouchInput = false; // Can't crouch while carrying
                 
                 if (jump && Input.GetButtonDown("Jump"))
                 {
@@ -264,17 +265,10 @@ namespace UpWeGo
                 }
             }
             
-            // Handle crouching (only if not carrying)
-            if (!isCarryingSomeone)
-            {
-                HandleCrouching(crouchInput);
-            }
+            // Handle crouching - always call it, let it handle restrictions internally
+            HandleCrouching(crouchInput);
             
-            // Debug input detection
-            if (horizontal != 0 || vertical != 0 || isRunning || crouchInput)
-            {
-                Debug.Log($"🎮 Input detected - H: {horizontal:F2}, V: {vertical:F2}, Shift: {isRunning}, Crouch: {crouchInput}");
-            }
+            // Minimal input debug
 
             // Check if grounded
             bool isGrounded = controller.isGrounded;
@@ -822,8 +816,34 @@ namespace UpWeGo
 
         void HandleCrouching(bool crouchInput)
         {
+            // Check if we can crouch (not carrying someone)
+            bool isCarryingSomeone = (carriedPlayerNetId != 0);
+            
+            // Test multiple ways to detect Ctrl key
+            bool leftCtrl = Input.GetKey(KeyCode.LeftControl);
+            bool rightCtrl = Input.GetKey(KeyCode.RightControl);
+            bool anyCtrl = leftCtrl || rightCtrl;
+            
+            // Also test the crouchKey variable
+            bool crouchKeyPressed = Input.GetKey(crouchKey);
+            
+            // Use any Ctrl key detection
+            bool shouldCrouch = anyCtrl && !isCarryingSomeone;
             bool wasCrouching = isCrouching;
-            isCrouching = crouchInput;
+            isCrouching = shouldCrouch;
+            
+            // Debug crouch state when standing still  
+            bool hasMovementInput = (Input.GetAxis("Horizontal") != 0 || Input.GetAxis("Vertical") != 0);
+            if (anyCtrl && !hasMovementInput)
+            {
+                Debug.Log($"🔍 Standing Still + Ctrl - Crouching: {isCrouching}, Moving: {hasMovementInput}, Should go to CrouchIdle");
+            }
+            
+            // Only log state changes
+            if (wasCrouching != isCrouching)
+            {
+                Debug.Log($"🔍 Crouch State Changed - Now: {isCrouching}");
+            }
             
             // Only update controller if crouch state changed
             if (wasCrouching != isCrouching)
@@ -979,12 +999,12 @@ namespace UpWeGo
                     if (isMoving)
                     {
                         animator.SetFloat("Speed", crouchSpeed);
-                        if (stateChanged) Debug.Log($"🦆 Setting animation: CROUCH WALKING (Speed={crouchSpeed})");
+                        Debug.Log($"🦆 CROUCH WALKING - StateChanged: {stateChanged}, Speed: {crouchSpeed}");
                     }
                     else
                     {
                         animator.SetFloat("Speed", 0f);
-                        if (stateChanged) Debug.Log($"🦆 Setting animation: CROUCH IDLE");
+                        Debug.Log($"🦆 CROUCH IDLE - StateChanged: {stateChanged}, IsCrouching param: {animator.GetBool("IsCrouching")}");
                     }
                 }
                 else if (isMoving && isRunning)
