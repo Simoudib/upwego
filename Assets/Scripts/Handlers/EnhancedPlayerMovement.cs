@@ -1007,12 +1007,39 @@ namespace UpWeGo
                     if (isMoving)
                     {
                         animator.SetFloat("Speed", walkSpeed); // Carry walking speed
-                        Debug.Log($"🤝 CARRY WALKING - StateChanged: {stateChanged}, Moving: {isMoving}, Speed: {walkSpeed}, IsCarrying param: {animator.GetBool("IsCarrying")}");
+                        
+                        // Detailed debugging for carry walking
+                        var currentState = animator.GetCurrentAnimatorStateInfo(0);
+                        string currentStateName = currentState.IsName("CarryIdle") ? "CarryIdle" : 
+                                          currentState.IsName("CarryWalking") ? "CarryWalking" : 
+                                          currentState.IsName("Idle") ? "Idle" : 
+                                          currentState.IsName("Walking") ? "Walking" : 
+                                          currentState.IsName("Running") ? "Running" : 
+                                          $"Unknown({currentState.nameHash})";
+                        Debug.Log($"🤝 CARRY WALKING DEBUG:");
+                        Debug.Log($"   - Current State: {currentStateName} (Hash: {currentState.nameHash})");
+                        Debug.Log($"   - IsCarrying: {animator.GetBool("IsCarrying")}");
+                        Debug.Log($"   - Speed: {animator.GetFloat("Speed")} (Set to: {walkSpeed})");
+                        Debug.Log($"   - IsMoving: {isMoving}");
+                        Debug.Log($"   - StateChanged: {stateChanged}");
                     }
                     else
                     {
                         animator.SetFloat("Speed", 0f);
-                        Debug.Log($"🤝 CARRY IDLE - StateChanged: {stateChanged}, IsCarrying param: {animator.GetBool("IsCarrying")}");
+                        
+                        // Detailed debugging for carry idle
+                        var currentState = animator.GetCurrentAnimatorStateInfo(0);
+                        string currentStateName = currentState.IsName("CarryIdle") ? "CarryIdle" : 
+                                          currentState.IsName("CarryWalking") ? "CarryWalking" : 
+                                          currentState.IsName("Idle") ? "Idle" : 
+                                          currentState.IsName("Walking") ? "Walking" : 
+                                          currentState.IsName("Running") ? "Running" : 
+                                          $"Unknown({currentState.nameHash})";
+                        Debug.Log($"🤝 CARRY IDLE DEBUG:");
+                        Debug.Log($"   - Current State: {currentStateName} (Hash: {currentState.nameHash})");
+                        Debug.Log($"   - IsCarrying: {animator.GetBool("IsCarrying")}");
+                        Debug.Log($"   - Speed: {animator.GetFloat("Speed")} (Set to: 0)");
+                        Debug.Log($"   - StateChanged: {stateChanged}");
                     }
                 }
                 else if (crouching)
