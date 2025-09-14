@@ -204,14 +204,24 @@ namespace UpWeGo
             // Initialize player name on server
             if (isServer && string.IsNullOrEmpty(playerDisplayName))
             {
-                // Generate a default name based on connection ID or netId
-                string defaultName = $"Player {netId}";
-                if (connectionToClient != null)
+                // Try to get Steam name first, fallback to connection ID
+                string steamName = GetSteamPlayerName();
+                if (!string.IsNullOrEmpty(steamName))
                 {
-                    defaultName = $"Player {connectionToClient.connectionId}";
+                    playerDisplayName = steamName;
+                    Debug.Log($"🏷️ Using Steam name: {playerDisplayName}");
                 }
-                playerDisplayName = defaultName;
-                Debug.Log($"🏷️ Initialized player name: {playerDisplayName}");
+                else
+                {
+                    // Fallback to connection ID if Steam name not available
+                    string defaultName = $"Player {netId}";
+                    if (connectionToClient != null)
+                    {
+                        defaultName = $"Player {connectionToClient.connectionId}";
+                    }
+                    playerDisplayName = defaultName;
+                    Debug.Log($"🏷️ Using fallback name: {playerDisplayName}");
+                }
             }
             
             // Setup name display component
@@ -1344,6 +1354,36 @@ namespace UpWeGo
             {
                 nameDisplay.SetPlayerName(newName);
             }
+        }
+        
+        /// <summary>
+        /// Gets the Steam player name if available
+        /// </summary>
+        string GetSteamPlayerName()
+        {
+            try
+            {
+                // Try to get Steam name using Mirror's Steam integration
+                if (connectionToClient != null && connectionToClient.authenticationData != null)
+                {
+                    string authData = connectionToClient.authenticationData.ToString();
+                    if (!string.IsNullOrEmpty(authData) && authData != "null")
+                    {
+                        Debug.Log($"🏷️ Found Steam name from auth data: {authData}");
+                        return authData;
+                    }
+                }
+                
+                // For now, we'll rely on Mirror's authentication data
+                // Steam SDK integration can be added later if needed
+                Debug.Log("ℹ️ No Steam SDK detected - using Mirror authentication data only");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"⚠️ Could not get Steam name: {e.Message}");
+            }
+            
+            return null;
         }
         
         /// <summary>

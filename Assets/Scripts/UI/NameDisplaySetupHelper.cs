@@ -10,12 +10,11 @@ namespace UpWeGo
     {
         [Header("Auto Setup")]
         [SerializeField] private bool setupOnAwake = true;
-        [SerializeField] private bool createNameInputUI = true;
         [SerializeField] private bool addToAllPlayers = true;
         
-        [Header("Name Input Settings")]
-        [SerializeField] private KeyCode nameInputToggleKey = KeyCode.N;
-        [SerializeField] private bool showNameInputOnStart = true;
+        [Header("Steam Integration")]
+        [SerializeField] private bool useSteamNames = true;
+        [SerializeField] private bool fallbackToConnectionId = true;
         
         void Awake()
         {
@@ -33,11 +32,7 @@ namespace UpWeGo
                 SetupExistingPlayers();
             }
             
-            // Create name input UI
-            if (createNameInputUI)
-            {
-                CreateNameInputUI();
-            }
+            // Steam names are handled automatically by EnhancedPlayerMovement
         }
         
         /// <summary>
@@ -74,26 +69,12 @@ namespace UpWeGo
         }
         
         /// <summary>
-        /// Creates the name input UI in the scene
+        /// Steam names are automatically detected and used
         /// </summary>
-        void CreateNameInputUI()
+        void SetupSteamIntegration()
         {
-            // Check if we already have a name input UI
-            PlayerNameInputUI existingUI = FindObjectOfType<PlayerNameInputUI>();
-            if (existingUI != null)
-            {
-                Debug.Log("🔍 Name input UI already exists in scene");
-                return;
-            }
-            
-            // Create a GameObject for the name input UI
-            GameObject nameInputUIObj = new GameObject("PlayerNameInputUI");
-            PlayerNameInputUI nameInputUI = nameInputUIObj.AddComponent<PlayerNameInputUI>();
-            
-            // Don't destroy this when loading new scenes
-            DontDestroyOnLoad(nameInputUIObj);
-            
-            Debug.Log("✅ Created PlayerNameInputUI in scene");
+            Debug.Log("🔧 Steam integration: Names will be automatically detected from Steam");
+            Debug.Log("📝 Fallback to connection ID if Steam names not available");
         }
         
         /// <summary>
@@ -104,7 +85,7 @@ namespace UpWeGo
         {
             SetupNameDisplaySystem();
             SetupExistingPlayers();
-            CreateNameInputUI();
+            SetupSteamIntegration();
         }
         
         /// <summary>

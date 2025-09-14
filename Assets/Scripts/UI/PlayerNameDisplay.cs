@@ -23,6 +23,7 @@ namespace UpWeGo
         [SerializeField] private Color carriedPlayerColor = Color.yellow;
         [SerializeField] private float fadeDistance = 30f; // Distance at which names start to fade
         [SerializeField] private AnimationCurve distanceFadeCurve = AnimationCurve.Linear(0, 1, 1, 0);
+        [SerializeField] private float fontSize = 24f; // Font size for the name text
         
         [Header("Auto Setup")]
         [SerializeField] private bool autoCreateUI = true;
@@ -167,7 +168,7 @@ namespace UpWeGo
             
             if (nameCanvas != null)
             {
-                // Make the canvas face the camera
+                // Make the canvas face the camera (billboard effect for all players)
                 Vector3 directionToCamera = playerCamera.transform.position - nameCanvas.transform.position;
                 directionToCamera.y = 0; // Keep it horizontal
                 
@@ -276,7 +277,7 @@ namespace UpWeGo
             // Setup TextMeshPro component
             nameText = textObj.AddComponent<TextMeshProUGUI>();
             nameText.text = "Player Name";
-            nameText.fontSize = 36;
+            nameText.fontSize = fontSize; // Use configurable font size
             nameText.color = defaultNameColor;
             nameText.alignment = TextAlignmentOptions.Center;
             nameText.fontStyle = FontStyles.Bold;
@@ -319,6 +320,18 @@ namespace UpWeGo
         public void SetMaxDistance(float distance)
         {
             maxDistance = distance;
+        }
+        
+        /// <summary>
+        /// Sets the font size for the name text
+        /// </summary>
+        public void SetFontSize(float size)
+        {
+            fontSize = size;
+            if (nameText != null)
+            {
+                nameText.fontSize = fontSize;
+            }
         }
         
         /// <summary>
