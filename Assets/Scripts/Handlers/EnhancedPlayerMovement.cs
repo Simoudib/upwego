@@ -51,6 +51,10 @@ namespace UpWeGo
         public float standingRadius = 0.5f;
         public float crouchingRadius = 0.5f;
         
+        [Header("Player Identity")]
+        [SyncVar(hook = nameof(OnPlayerNameChanged))]
+        public string playerDisplayName = "";
+        
         [Header("Debug")]
         public bool showCarryRadius = true;
         public bool debugTossPhysics = true;
@@ -68,6 +72,7 @@ namespace UpWeGo
         private bool lastIsCarrying = false;
         private bool lastIsBeingCarried = false;
         private bool lastIsThrowing = false;
+        private float lastLandingTime = 0f;
         
         // Crouch system
         private bool isCrouching = false;
@@ -195,6 +200,22 @@ namespace UpWeGo
                 if (!hasIsBeingCarried) Debug.LogError("❌ Missing 'IsBeingCarried' parameter in Animator Controller!");
                 if (!hasIsThrowing) Debug.LogError("❌ Missing 'IsThrowing' parameter in Animator Controller!");
             }
+            
+            // Initialize player name on server
+            if (isServer && string.IsNullOrEmpty(playerDisplayName))
+            {
+                // Generate a default name based on connection ID or netId
+                string defaultName = $"Player {netId}";
+                if (connectionToClient != null)
+                {
+                    defaultName = $"Player {connectionToClient.connectionId}";
+                }
+                playerDisplayName = defaultName;
+                Debug.Log($"🏷️ Initialized player name: {playerDisplayName}");
+            }
+            
+            // Setup name display component
+            SetupNameDisplay();
         }
 
         void Update()
@@ -921,7 +942,8 @@ namespace UpWeGo
             if (animator != null)
             {
                 animator.SetBool("IsThrowing", false);
-                Debug.Log("🎯 Throw animation completed - resetting to normal state");
+                Debug.Log($"🎯 Throw animation completed - resetting to normal state");
+                Debug.Log($"🔍 Post-throw state: carriedPlayer={carriedPlayer != null}, carriedPlayerNetId={carriedPlayerNetId}, IsCarrying={IsCarrying}");
             }
         }
 
@@ -968,12 +990,20 @@ namespace UpWeGo
                 animator.SetBool("IsJumping", true);
                 animator.SetBool("IsGrounded", false);
             }
-            else if (isGrounded && !lastIsGrounded)
+            else if (isGrounded && !lastIsGrounded && Time.time - lastLandingTime > 0.5f)
             {
-                // Just landed
+                // Just landed - with cooldown to prevent spam
                 animator.SetBool("IsJumping", false);
                 animator.SetBool("IsGrounded", true);
-                if (stateChanged) Debug.Log($"🎯 Setting animation: LANDED!");
+                lastLandingTime = Time.time;
+                Debug.Log($"🎯 Player landed! Resetting jump state.");
+                
+                // Clear any throwing state when landing
+                if (animator.GetBool("IsThrowing"))
+                {
+                    animator.SetBool("IsThrowing", false);
+                    Debug.Log($"🎯 Cleared throwing state on landing");
+                }
             }
             else
             {
@@ -1004,6 +1034,9 @@ namespace UpWeGo
                 {
                     // Carrying state (third highest priority)
                     animator.SetBool("IsRunning", false);
+                    
+                    // Debug movement input while carrying
+                    Debug.Log($"🎒 CARRY INPUT CHECK - isMoving: {isMoving}, H: {Input.GetAxis("Horizontal"):F2}, V: {Input.GetAxis("Vertical"):F2}");
                     if (isMoving)
                     {
                         animator.SetFloat("Speed", walkSpeed); // Carry walking speed
@@ -1046,15 +1079,35 @@ namespace UpWeGo
                 {
                     // Crouching state (third priority for ground movement)
                     animator.SetBool("IsRunning", false);
+                    
+                    // Debug crouch state and parameters
+                    var currentState = animator.GetCurrentAnimatorStateInfo(0);
+                    string currentStateName = currentState.IsName("CarryIdle") ? "CarryIdle" : 
+                                              currentState.IsName("CarryWalking") ? "CarryWalking" : 
+                                              currentState.IsName("Idle") ? "Idle" : 
+                                              currentState.IsName("Walking") ? "Walking" : 
+                                              currentState.IsName("Running") ? "Running" : 
+                                              currentState.IsName("CrouchIdle") ? "CrouchIdle" : 
+                                              currentState.IsName("CrouchWalking") ? "CrouchWalking" : 
+                                              $"Unknown({currentState.nameHash})";
+                    
                     if (isMoving)
                     {
                         animator.SetFloat("Speed", crouchSpeed);
-                        Debug.Log($"🦆 CROUCH WALKING - StateChanged: {stateChanged}, Speed: {crouchSpeed}");
+                        Debug.Log($"🦆 CROUCH WALKING DEBUG:");
+                        Debug.Log($"   - Current State: {currentStateName} (Hash: {currentState.nameHash})");
+                        Debug.Log($"   - IsCrouching: {animator.GetBool("IsCrouching")}");
+                        Debug.Log($"   - Speed: {animator.GetFloat("Speed")} (Set to: {crouchSpeed})");
+                        Debug.Log($"   - StateChanged: {stateChanged}");
                     }
                     else
                     {
                         animator.SetFloat("Speed", 0f);
-                        Debug.Log($"🦆 CROUCH IDLE - StateChanged: {stateChanged}, IsCrouching param: {animator.GetBool("IsCrouching")}");
+                        Debug.Log($"🦆 CROUCH IDLE DEBUG:");
+                        Debug.Log($"   - Current State: {currentStateName} (Hash: {currentState.nameHash})");
+                        Debug.Log($"   - IsCrouching: {animator.GetBool("IsCrouching")}");
+                        Debug.Log($"   - Speed: {animator.GetFloat("Speed")} (Set to: 0)");
+                        Debug.Log($"   - StateChanged: {stateChanged}");
                     }
                 }
                 else if (isMoving && isRunning)
@@ -1104,10 +1157,30 @@ namespace UpWeGo
                 // Try to identify the state name from common hashes
                 if (currentState.IsName("Idle")) stateName = "Idle";
                 else if (currentState.IsName("Running")) stateName = "Running";
-                else if (currentState.IsName("Base Layer.Idle")) stateName = "Idle";
-                else if (currentState.IsName("Base Layer.Running")) stateName = "Running";
+                else if (currentState.IsName("Walking")) stateName = "Walking";
+                else if (currentState.IsName("Jumping")) stateName = "Jumping";
+                else if (currentState.IsName("CrouchIdle")) stateName = "CrouchIdle";
+                else if (currentState.IsName("CrouchWalking")) stateName = "CrouchWalking";
+                else if (currentState.IsName("CarryIdle")) stateName = "CarryIdle";
+                else if (currentState.IsName("CarryWalking")) stateName = "CarryWalking";
+                else if (currentState.IsName("BeingCarriedIdle")) stateName = "BeingCarriedIdle";
+                else if (currentState.IsName("Throwing")) stateName = "Throwing";
+                else if (currentState.IsName("Base Layer.Idle")) stateName = "Base Layer.Idle";
+                else if (currentState.IsName("Base Layer.Running")) stateName = "Base Layer.Running";
+                else
+                {
+                    stateName = $"Unknown(Hash:{currentState.shortNameHash})";
+                    if (stateChanged)
+                    {
+                        Debug.LogWarning($"⚠️ Unknown Animator State! Hash: {currentState.shortNameHash}, FullHash: {currentState.fullPathHash}");
+                    }
+                }
                 
-                Debug.Log($"🎭 Current Animator State: {stateName} (Hash: {currentState.shortNameHash}, IsRunning: {animator.GetBool("IsRunning")}, Speed: {animator.GetFloat("Speed")})");
+                // Only log when state actually changes to reduce spam
+                if (stateChanged)
+                {
+                    Debug.Log($"🎭 Animator State Changed: {stateName} (Hash: {currentState.shortNameHash}, IsRunning: {animator.GetBool("IsRunning")}, Speed: {animator.GetFloat("Speed")})");
+                }
             }
         }
 
@@ -1217,6 +1290,79 @@ namespace UpWeGo
                 if (isBeingCarried) return $"Being carried by {(carrier?.name ?? "Unknown")}";
                 if (carriedPlayerNetId != 0) return $"Carrying {(carriedPlayer?.name ?? "Unknown")}";
                 return "Not carrying anyone";
+            }
+        }
+        
+        // Player name management
+        public string PlayerDisplayName => playerDisplayName;
+        
+        /// <summary>
+        /// Sets the player's display name (only works on server)
+        /// </summary>
+        [Server]
+        public void SetPlayerName(string newName)
+        {
+            if (!string.IsNullOrEmpty(newName))
+            {
+                playerDisplayName = newName;
+                Debug.Log($"🏷️ Server set player name: {newName} for {gameObject.name}");
+            }
+        }
+        
+        /// <summary>
+        /// Command to set player name from client
+        /// </summary>
+        [Command]
+        public void CmdSetPlayerName(string newName)
+        {
+            // Validate name on server
+            if (string.IsNullOrEmpty(newName) || newName.Length < 2 || newName.Length > 20)
+            {
+                Debug.LogWarning($"⚠️ Invalid name received from client: '{newName}'");
+                return;
+            }
+            
+            // Clean the name (remove extra spaces, etc.)
+            string cleanName = newName.Trim();
+            
+            // Set the name
+            SetPlayerName(cleanName);
+            
+            Debug.Log($"🏷️ Client {connectionToClient.connectionId} set name to: {cleanName}");
+        }
+        
+        /// <summary>
+        /// Called when player name changes (SyncVar hook)
+        /// </summary>
+        void OnPlayerNameChanged(string oldName, string newName)
+        {
+            Debug.Log($"🏷️ Player name changed: '{oldName}' → '{newName}' (NetId: {netId})");
+            
+            // Update the name display component if it exists
+            PlayerNameDisplay nameDisplay = GetComponent<PlayerNameDisplay>();
+            if (nameDisplay != null)
+            {
+                nameDisplay.SetPlayerName(newName);
+            }
+        }
+        
+        /// <summary>
+        /// Sets up the name display component
+        /// </summary>
+        void SetupNameDisplay()
+        {
+            // Add PlayerNameDisplay component if not already present
+            PlayerNameDisplay nameDisplay = GetComponent<PlayerNameDisplay>();
+            if (nameDisplay == null)
+            {
+                nameDisplay = gameObject.AddComponent<PlayerNameDisplay>();
+                Debug.Log($"✅ Added PlayerNameDisplay component to {gameObject.name}");
+            }
+            
+            // Set the initial name if we have one
+            if (!string.IsNullOrEmpty(playerDisplayName))
+            {
+                nameDisplay.SetPlayerName(playerDisplayName);
             }
         }
     }
