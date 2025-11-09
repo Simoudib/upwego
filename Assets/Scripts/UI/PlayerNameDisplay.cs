@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using Mirror;
 using TMPro;
 using Steamworks;
@@ -6,12 +7,12 @@ using Steamworks;
 public class PlayerNameDisplay : NetworkBehaviour
 {
     [Header("Name Display Settings")]
-    [SerializeField] private GameObject nameDisplayPrefab;
+    [SerializeField] private bool createDisplayProgrammatically = true;
+    [SerializeField] private GameObject nameDisplayPrefab; // Optional: use if you want custom prefab
     [SerializeField] private float displayDistance = 10f;
     [SerializeField] private Vector3 nameOffset = new Vector3(0, 2.5f, 0);
-    
-    [Header("References")]
-    [SerializeField] private Transform nameDisplayParent;
+    [SerializeField] private float textSize = 36f;
+    [SerializeField] private Color textColor = Color.white;
     
     [SyncVar(hook = nameof(OnSteamNameChanged))]
     private string steamName = "";
@@ -57,26 +58,66 @@ public class PlayerNameDisplay : NetworkBehaviour
     
     void CreateNameDisplay()
     {
-        if (nameDisplayPrefab != null)
+        if (nameDisplayPrefab != null && !createDisplayProgrammatically)
         {
+            // Use assigned prefab
             nameDisplayInstance = Instantiate(nameDisplayPrefab, transform);
             nameDisplayInstance.transform.localPosition = nameOffset;
             
             nameText = nameDisplayInstance.GetComponentInChildren<TextMeshProUGUI>();
             nameCanvas = nameDisplayInstance.GetComponent<Canvas>();
-            
-            if (nameText != null)
-            {
-                nameText.text = steamName;
-            }
-            
-            if (nameCanvas != null)
-            {
-                nameCanvas.worldCamera = mainCamera;
-            }
-            
-            nameDisplayInstance.SetActive(false);
         }
+        else
+        {
+            // Create programmatically
+            nameDisplayInstance = new GameObject("NameDisplay");
+            nameDisplayInstance.transform.SetParent(transform);
+            nameDisplayInstance.transform.localPosition = nameOffset;
+            
+            // Create canvas
+            nameCanvas = nameDisplayInstance.AddComponent<Canvas>();
+            nameCanvas.renderMode = RenderMode.WorldSpace;
+            
+            RectTransform canvasRect = nameCanvas.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = new Vector2(200, 50);
+            canvasRect.localScale = new Vector3(0.01f, 0.01f, 0.01f);
+            
+            // Add CanvasScaler for better scaling
+            CanvasScaler scaler = nameDisplayInstance.AddComponent<CanvasScaler>();
+            scaler.dynamicPixelsPerUnit = 10;
+            
+            // Create text object
+            GameObject textObj = new GameObject("NameText");
+            textObj.transform.SetParent(nameDisplayInstance.transform, false);
+            
+            nameText = textObj.AddComponent<TextMeshProUGUI>();
+            nameText.text = steamName;
+            nameText.fontSize = textSize;
+            nameText.color = textColor;
+            nameText.alignment = TextAlignmentOptions.Center;
+            nameText.enableWordWrapping = false;
+            
+            // Add outline for better visibility
+            nameText.outlineWidth = 0.2f;
+            nameText.outlineColor = new Color(0, 0, 0, 0.8f);
+            
+            RectTransform textRect = nameText.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.sizeDelta = Vector2.zero;
+        }
+        
+        if (nameCanvas != null)
+        {
+            nameCanvas.worldCamera = mainCamera;
+        }
+        
+        if (nameText != null)
+        {
+            nameText.text = steamName;
+        }
+        
+        nameDisplayInstance.SetActive(false);
     }
     
     void Update()

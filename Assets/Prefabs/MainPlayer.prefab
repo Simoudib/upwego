@@ -369,42 +369,12 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  nameCanvas: {fileID: 0}
-  nameText: {fileID: 0}
-  heightOffset: 2.5
-  maxDistance: 50
-  hideOwnName: 1
-  defaultNameColor: {r: 1, g: 1, b: 1, a: 1}
-  localPlayerColor: {r: 0, g: 1, b: 1, a: 1}
-  carriedPlayerColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  fadeDistance: 30
-  distanceFadeCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: -1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: -1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  fontSize: 24
-  autoCreateUI: 1
-  fallbackFont: {fileID: 12800000, guid: fb67205c672fbb04d829783b9f771fc9, type: 3}
+  createDisplayProgrammatically: 1
+  nameDisplayPrefab: {fileID: 7970823279507854099, guid: 1b75a701f48158f4cbe6c4bb02352a1a, type: 3}
+  displayDistance: 10
+  nameOffset: {x: 0, y: 2.5, z: 0}
+  textSize: 36
+  textColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1001 &4741597399600029637
 PrefabInstance:
   m_ObjectHideFlags: 0
