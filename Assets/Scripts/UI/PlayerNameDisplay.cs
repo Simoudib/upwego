@@ -1,378 +1,126 @@
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 using Mirror;
+using TMPro;
+using Steamworks;
 
-namespace UpWeGo
+public class PlayerNameDisplay : NetworkBehaviour
 {
-    /// <summary>
-    /// Displays player names above characters with billboard behavior (always faces camera)
-    /// </summary>
-    public class PlayerNameDisplay : NetworkBehaviour
+    [Header("Name Display Settings")]
+    [SerializeField] private GameObject nameDisplayPrefab;
+    [SerializeField] private float displayDistance = 10f;
+    [SerializeField] private Vector3 nameOffset = new Vector3(0, 2.5f, 0);
+    
+    [Header("References")]
+    [SerializeField] private Transform nameDisplayParent;
+    
+    [SyncVar(hook = nameof(OnSteamNameChanged))]
+    private string steamName = "";
+    
+    private GameObject nameDisplayInstance;
+    private TextMeshProUGUI nameText;
+    private Canvas nameCanvas;
+    private Camera mainCamera;
+    
+    void Start()
     {
-        [Header("Name Display Settings")]
-        [SerializeField] private Canvas nameCanvas;
-        [SerializeField] private TextMeshProUGUI nameText;
-        [SerializeField] private float heightOffset = 2.5f; // How high above the player to show the name
-        [SerializeField] private float maxDistance = 50f; // Maximum distance to show names
-        [SerializeField] private bool hideOwnName = true; // Hide name for local player
+        mainCamera = Camera.main;
         
-        [Header("Visual Settings")]
-        [SerializeField] private Color defaultNameColor = Color.white;
-        [SerializeField] private Color localPlayerColor = Color.cyan;
-        [SerializeField] private Color carriedPlayerColor = Color.yellow;
-        [SerializeField] private float fadeDistance = 30f; // Distance at which names start to fade
-        [SerializeField] private AnimationCurve distanceFadeCurve = AnimationCurve.Linear(0, 1, 1, 0);
-        [SerializeField] private float fontSize = 24f; // Font size for the name text
-        
-        [Header("Auto Setup")]
-        [SerializeField] private bool autoCreateUI = true;
-        [SerializeField] private Font fallbackFont;
-        
-        // Network synchronized player name
-        [SyncVar(hook = nameof(OnPlayerNameChanged))]
-        private string playerName = "";
-        
-        // References
-        private Camera playerCamera;
-        private Transform playerTransform;
-        private EnhancedPlayerMovement playerMovement;
-        private CanvasGroup canvasGroup;
-        
-        // State tracking
-        private bool isSetup = false;
-        private float lastDistanceCheck = 0f;
-        private const float DISTANCE_CHECK_INTERVAL = 0.1f; // Check distance 10 times per second
-        
-        void Start()
+        if (isLocalPlayer)
         {
-            playerTransform = transform;
-            playerMovement = GetComponent<EnhancedPlayerMovement>();
-            
-            // Setup UI if needed
-            if (autoCreateUI && nameCanvas == null)
+            // Get Steam name and send to server
+            if (SteamManager.Initialized)
             {
-                SetupNameDisplayUI();
-            }
-            
-            // Find the main camera
-            FindPlayerCamera();
-            
-            // Set default name if none provided
-            if (string.IsNullOrEmpty(playerName))
-            {
-                if (isServer)
-                {
-                    // Generate a default name based on connection ID or netId
-                    string defaultName = $"Player {netId}";
-                    if (connectionToClient != null)
-                    {
-                        defaultName = $"Player {connectionToClient.connectionId}";
-                    }
-                    playerName = defaultName;
-                }
-            }
-            
-            isSetup = true;
-            UpdateNameDisplay();
-        }
-        
-        void Update()
-        {
-            if (!isSetup || nameCanvas == null) return;
-            
-            // Update billboard rotation to face camera
-            UpdateBillboardRotation();
-            
-            // Update distance-based visibility and fading
-            if (Time.time - lastDistanceCheck > DISTANCE_CHECK_INTERVAL)
-            {
-                UpdateDistanceVisibility();
-                lastDistanceCheck = Time.time;
+                string localSteamName = SteamFriends.GetPersonaName();
+                CmdSetSteamName(localSteamName);
             }
         }
-        
-        /// <summary>
-        /// Sets the player's display name (only works on server)
-        /// </summary>
-        public void SetPlayerName(string newName)
+        else
         {
-            if (!isServer) return;
-            
-            playerName = newName;
+            // Create name display for other players
+            CreateNameDisplay();
         }
-        
-        /// <summary>
-        /// Gets the current player name
-        /// </summary>
-        public string GetPlayerName()
+    }
+    
+    [Command]
+    void CmdSetSteamName(string name)
+    {
+        steamName = name;
+    }
+    
+    void OnSteamNameChanged(string oldName, string newName)
+    {
+        if (nameText != null)
         {
-            return playerName;
+            nameText.text = newName;
         }
-        
-        /// <summary>
-        /// Called when the player name changes (SyncVar hook)
-        /// </summary>
-        void OnPlayerNameChanged(string oldName, string newName)
+    }
+    
+    void CreateNameDisplay()
+    {
+        if (nameDisplayPrefab != null)
         {
-            Debug.Log($"🏷️ Player name changed: {oldName} → {newName} (NetId: {netId})");
-            UpdateNameDisplay();
-        }
-        
-        /// <summary>
-        /// Updates the name display text and color
-        /// </summary>
-        void UpdateNameDisplay()
-        {
-            if (nameText == null) return;
+            nameDisplayInstance = Instantiate(nameDisplayPrefab, transform);
+            nameDisplayInstance.transform.localPosition = nameOffset;
             
-            nameText.text = playerName;
+            nameText = nameDisplayInstance.GetComponentInChildren<TextMeshProUGUI>();
+            nameCanvas = nameDisplayInstance.GetComponent<Canvas>();
             
-            // Set color based on player state
-            Color nameColor = defaultNameColor;
-            
-            if (isLocalPlayer)
-            {
-                nameColor = localPlayerColor;
-                // Hide own name if setting is enabled
-                if (hideOwnName && nameCanvas != null)
-                {
-                    nameCanvas.gameObject.SetActive(false);
-                    return;
-                }
-            }
-            else if (playerMovement != null && playerMovement.IsBeingCarried)
-            {
-                nameColor = carriedPlayerColor;
-            }
-            
-            nameText.color = nameColor;
-            
-            // Make sure canvas is active
-            if (nameCanvas != null)
-            {
-                nameCanvas.gameObject.SetActive(true);
-            }
-        }
-        
-        /// <summary>
-        /// Updates the billboard rotation to always face the camera
-        /// </summary>
-        void UpdateBillboardRotation()
-        {
-            if (playerCamera == null)
-            {
-                FindPlayerCamera();
-                return;
-            }
-            
-            if (nameCanvas != null)
-            {
-                // Make the canvas face the camera (billboard effect for all players)
-                Vector3 directionToCamera = playerCamera.transform.position - nameCanvas.transform.position;
-                directionToCamera.y = 0; // Keep it horizontal
-                
-                if (directionToCamera != Vector3.zero)
-                {
-                    nameCanvas.transform.rotation = Quaternion.LookRotation(-directionToCamera);
-                }
-            }
-        }
-        
-        /// <summary>
-        /// Updates visibility and fading based on distance from camera
-        /// </summary>
-        void UpdateDistanceVisibility()
-        {
-            if (playerCamera == null || nameCanvas == null) return;
-            
-            float distance = Vector3.Distance(playerCamera.transform.position, playerTransform.position);
-            
-            // Hide if too far away
-            if (distance > maxDistance)
-            {
-                nameCanvas.gameObject.SetActive(false);
-                return;
-            }
-            
-            // Show if within range
-            if (!nameCanvas.gameObject.activeSelf && (!isLocalPlayer || !hideOwnName))
-            {
-                nameCanvas.gameObject.SetActive(true);
-            }
-            
-            // Apply distance-based fading
-            if (canvasGroup != null && distance > fadeDistance)
-            {
-                float fadeRatio = (distance - fadeDistance) / (maxDistance - fadeDistance);
-                float alpha = distanceFadeCurve.Evaluate(1f - fadeRatio);
-                canvasGroup.alpha = alpha;
-            }
-            else if (canvasGroup != null)
-            {
-                canvasGroup.alpha = 1f;
-            }
-        }
-        
-        /// <summary>
-        /// Finds the main camera or active camera
-        /// </summary>
-        void FindPlayerCamera()
-        {
-            // Try to find the main camera
-            if (Camera.main != null)
-            {
-                playerCamera = Camera.main;
-                return;
-            }
-            
-            // Fallback to any active camera
-            Camera[] cameras = FindObjectsOfType<Camera>();
-            foreach (Camera cam in cameras)
-            {
-                if (cam.isActiveAndEnabled)
-                {
-                    playerCamera = cam;
-                    break;
-                }
-            }
-            
-            if (playerCamera == null)
-            {
-                Debug.LogWarning($"⚠️ PlayerNameDisplay: No active camera found for {gameObject.name}");
-            }
-        }
-        
-        /// <summary>
-        /// Automatically creates the name display UI if not already present
-        /// </summary>
-        void SetupNameDisplayUI()
-        {
-            // Create canvas GameObject
-            GameObject canvasObj = new GameObject("NameDisplayCanvas");
-            canvasObj.transform.SetParent(transform);
-            canvasObj.transform.localPosition = new Vector3(0, heightOffset, 0);
-            
-            // Setup Canvas component
-            nameCanvas = canvasObj.AddComponent<Canvas>();
-            nameCanvas.renderMode = RenderMode.WorldSpace;
-            nameCanvas.worldCamera = playerCamera;
-            
-            // Setup Canvas Scaler
-            CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-            scaler.scaleFactor = 0.01f; // Adjust size
-            
-            // Add CanvasGroup for fading
-            canvasGroup = canvasObj.AddComponent<CanvasGroup>();
-            
-            // Setup RectTransform
-            RectTransform canvasRect = canvasObj.GetComponent<RectTransform>();
-            canvasRect.sizeDelta = new Vector2(200, 50);
-            
-            // Create text GameObject
-            GameObject textObj = new GameObject("NameText");
-            textObj.transform.SetParent(canvasObj.transform);
-            
-            // Setup TextMeshPro component
-            nameText = textObj.AddComponent<TextMeshProUGUI>();
-            nameText.text = "Player Name";
-            nameText.fontSize = fontSize; // Use configurable font size
-            nameText.color = defaultNameColor;
-            nameText.alignment = TextAlignmentOptions.Center;
-            nameText.fontStyle = FontStyles.Bold;
-            
-            // Add outline for better readability
-            nameText.fontMaterial = Resources.Load<Material>("Fonts & Materials/LiberationSans SDF - Outline");
-            if (nameText.fontMaterial == null)
-            {
-                // Fallback: create a simple outline effect
-                nameText.enableVertexGradient = false;
-                nameText.outlineWidth = 0.2f;
-                nameText.outlineColor = Color.black;
-            }
-            
-            // Setup text RectTransform
-            RectTransform textRect = textObj.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = Vector2.zero;
-            textRect.offsetMax = Vector2.zero;
-            
-            Debug.Log($"✅ Created name display UI for {gameObject.name}");
-        }
-        
-        /// <summary>
-        /// Updates the height offset of the name display
-        /// </summary>
-        public void SetHeightOffset(float newOffset)
-        {
-            heightOffset = newOffset;
-            if (nameCanvas != null)
-            {
-                nameCanvas.transform.localPosition = new Vector3(0, heightOffset, 0);
-            }
-        }
-        
-        /// <summary>
-        /// Sets the maximum display distance
-        /// </summary>
-        public void SetMaxDistance(float distance)
-        {
-            maxDistance = distance;
-        }
-        
-        /// <summary>
-        /// Sets the font size for the name text
-        /// </summary>
-        public void SetFontSize(float size)
-        {
-            fontSize = size;
             if (nameText != null)
             {
-                nameText.fontSize = fontSize;
+                nameText.text = steamName;
             }
-        }
-        
-        /// <summary>
-        /// Temporarily highlights the name (useful for interactions)
-        /// </summary>
-        public void HighlightName(Color highlightColor, float duration = 2f)
-        {
-            if (nameText != null)
-            {
-                StartCoroutine(HighlightCoroutine(highlightColor, duration));
-            }
-        }
-        
-        private System.Collections.IEnumerator HighlightCoroutine(Color highlightColor, float duration)
-        {
-            Color originalColor = nameText.color;
-            nameText.color = highlightColor;
             
-            yield return new WaitForSeconds(duration);
+            if (nameCanvas != null)
+            {
+                nameCanvas.worldCamera = mainCamera;
+            }
             
-            // Restore original color based on player state
-            UpdateNameDisplay();
+            nameDisplayInstance.SetActive(false);
         }
+    }
+    
+    void Update()
+    {
+        if (isLocalPlayer || nameDisplayInstance == null) return;
         
-        void OnDestroy()
+        // Check distance to local player
+        GameObject localPlayer = GetLocalPlayer();
+        if (localPlayer != null)
         {
-            // Cleanup
-            if (nameCanvas != null && nameCanvas.gameObject != null)
+            float distance = Vector3.Distance(transform.position, localPlayer.transform.position);
+            
+            bool shouldShow = distance <= displayDistance;
+            if (nameDisplayInstance.activeSelf != shouldShow)
             {
-                Destroy(nameCanvas.gameObject);
+                nameDisplayInstance.SetActive(shouldShow);
+            }
+            
+            // Make name face camera
+            if (shouldShow && mainCamera != null)
+            {
+                nameDisplayInstance.transform.LookAt(mainCamera.transform);
+                nameDisplayInstance.transform.Rotate(0, 180, 0);
             }
         }
-        
-        // Editor helper to test name changes
-        [System.Diagnostics.Conditional("UNITY_EDITOR")]
-        void OnValidate()
+    }
+    
+    GameObject GetLocalPlayer()
+    {
+        foreach (var player in FindObjectsOfType<PlayerNameDisplay>())
         {
-            if (Application.isPlaying && isSetup)
+            if (player.isLocalPlayer)
             {
-                UpdateNameDisplay();
+                return player.gameObject;
             }
+        }
+        return null;
+    }
+    
+    void OnDestroy()
+    {
+        if (nameDisplayInstance != null)
+        {
+            Destroy(nameDisplayInstance);
         }
     }
 }

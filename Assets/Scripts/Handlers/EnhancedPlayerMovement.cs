@@ -52,7 +52,7 @@ namespace UpWeGo
         public float crouchingRadius = 0.5f;
         
         [Header("Player Identity")]
-        [SyncVar(hook = nameof(OnPlayerNameChanged))]
+        //[SyncVar(hook = nameof(OnPlayerNameChanged))]
         public string playerDisplayName = "";
         
         [Header("Debug")]
@@ -1344,17 +1344,7 @@ namespace UpWeGo
         /// <summary>
         /// Called when player name changes (SyncVar hook)
         /// </summary>
-        void OnPlayerNameChanged(string oldName, string newName)
-        {
-            Debug.Log($"🏷️ Player name changed: '{oldName}' → '{newName}' (NetId: {netId})");
-            
-            // Update the name display component if it exists
-            PlayerNameDisplay nameDisplay = GetComponent<PlayerNameDisplay>();
-            if (nameDisplay != null)
-            {
-                nameDisplay.SetPlayerName(newName);
-            }
-        }
+        
         
         /// <summary>
         /// Gets the Steam player name if available
@@ -1363,20 +1353,33 @@ namespace UpWeGo
         {
             try
             {
-                // Try to get Steam name using Mirror's Steam integration
-                if (connectionToClient != null && connectionToClient.authenticationData != null)
+                // Try to get Steam name using our Steam integration
+                if (SteamPlayerNameManager.IsSteamAvailable())
                 {
-                    string authData = connectionToClient.authenticationData.ToString();
-                    if (!string.IsNullOrEmpty(authData) && authData != "null")
+                    // For local player, get their Steam name directly
+                    if (isLocalPlayer)
                     {
-                        Debug.Log($"🏷️ Found Steam name from auth data: {authData}");
-                        return authData;
+                        string steamName = SteamPlayerNameManager.GetLocalPlayerSteamName();
+                        if (!string.IsNullOrEmpty(steamName))
+                        {
+                            Debug.Log($"🏷️ Found local Steam name: {steamName}");
+                            return steamName;
+                        }
+                    }
+                    
+                    // For remote players, try to get from Mirror's authentication data
+                    if (connectionToClient != null && connectionToClient.authenticationData != null)
+                    {
+                        string authData = connectionToClient.authenticationData.ToString();
+                        if (!string.IsNullOrEmpty(authData) && authData != "null")
+                        {
+                            Debug.Log($"🏷️ Found Steam name from auth data: {authData}");
+                            return authData;
+                        }
                     }
                 }
                 
-                // For now, we'll rely on Mirror's authentication data
-                // Steam SDK integration can be added later if needed
-                Debug.Log("ℹ️ No Steam SDK detected - using Mirror authentication data only");
+                Debug.Log("ℹ️ Steam not available or no name found - using fallback");
             }
             catch (System.Exception e)
             {
@@ -1399,11 +1402,7 @@ namespace UpWeGo
                 Debug.Log($"✅ Added PlayerNameDisplay component to {gameObject.name}");
             }
             
-            // Set the initial name if we have one
-            if (!string.IsNullOrEmpty(playerDisplayName))
-            {
-                nameDisplay.SetPlayerName(playerDisplayName);
-            }
+             
         }
     }
 }
