@@ -372,7 +372,7 @@ MonoBehaviour:
   createDisplayProgrammatically: 1
   nameDisplayPrefab: {fileID: 7970823279507854099, guid: 1b75a701f48158f4cbe6c4bb02352a1a, type: 3}
   displayDistance: 10
-  nameOffset: {x: 0, y: 2.5, z: 0}
+  nameOffset: {x: 0, y: 1.6, z: 0}
   textSize: 36
   textColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1001 &4741597399600029637
