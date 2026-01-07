@@ -7480,6 +7480,7 @@ Transform:
   - {fileID: 684769853}
   - {fileID: 1966170916}
   - {fileID: 1457855171}
+  - {fileID: 1359280859}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &554233982
@@ -9138,7 +9139,7 @@ PrefabInstance:
       addedObject: {fileID: 684769855}
     - targetCorrespondingSourceObject: {fileID: 4955066982439744087, guid: e7e27dd1eba7b364ba787c48c5da2083, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 684769856}
+      addedObject: {fileID: 684769858}
     - targetCorrespondingSourceObject: {fileID: 4955066982439744087, guid: e7e27dd1eba7b364ba787c48c5da2083, type: 3}
       insertIndex: -1
       addedObject: {fileID: 684769857}
@@ -9174,25 +9175,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.15664673, y: 0.20066553, z: 0.15664154}
   m_Center: {x: 0.0000006109476, y: 0.10033277, z: 0}
---- !u!114 &684769856
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 684769854}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e3e15318236bf8d47aeabccb2afac848, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  platform: {fileID: 684769853}
-  platformPointA: {fileID: 1966170916}
-  platformPointB: {fileID: 1457855171}
-  objectX: {fileID: 1900193310}
-  objectXPointA: {fileID: 469575958}
-  objectXPointB: {fileID: 890428586}
-  moveSpeed: 2
 --- !u!54 &684769857
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -9220,6 +9202,28 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &684769858
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 684769854}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 850aece3ab117124ba85cb33bc7732de, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  platformMoveDistance: 0.5
+  platformSpeed: 2
+  returnWhenPlayerLeaves: 1
+  triggeredObject: {fileID: 1900193310}
+  pointA: {fileID: 469575958}
+  pointB: {fileID: 890428586}
+  triggeredObjectSpeed: 3
+  returnTriggeredObject: 1
+  targetTag: Player
+  exitDebounceTime: 0.2
 --- !u!1001 &684806681
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -18951,15 +18955,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1359280858}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -70.98, y: 91.4, z: -10.82}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -0.39000702, y: -0.04399872, z: -21.928354}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1900193310}
   - {fileID: 469575958}
   - {fileID: 890428586}
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 549578283}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1362343377
 PrefabInstance:
@@ -22750,7 +22754,7 @@ Transform:
   m_GameObject: {fileID: 1593459906}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -60.05, y: 96.21, z: -26.95}
+  m_LocalPosition: {x: -67.21, y: 97.99, z: -26.35}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -30221,4 +30225,3 @@ SceneRoots:
   - {fileID: 673093964}
   - {fileID: 1201636123}
   - {fileID: 549578283}
-  - {fileID: 1359280859}
