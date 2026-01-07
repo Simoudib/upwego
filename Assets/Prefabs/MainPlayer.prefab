@@ -293,9 +293,9 @@ MonoBehaviour:
   playerLayerMask:
     serializedVersion: 2
     m_Bits: 1
-  tossDistance: 8
-  tossHeight: 4
-  tossCooldown: 1
+  tossDistance: 18
+  tossHeight: 8
+  tossCooldown: 2
   useGravityForToss: 1
   localCarriedLerpSpeed: 15
   remoteCarriedLerpSpeed: 12

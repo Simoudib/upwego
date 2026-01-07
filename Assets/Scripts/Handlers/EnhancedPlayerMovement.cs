@@ -20,9 +20,9 @@ namespace UpWeGo
         public LayerMask playerLayerMask = 1; // Layer mask for detecting other players
 
         [Header("Toss Settings")]
-        public float tossDistance = 8f; // How far to throw (like throwing a ball)
-        public float tossHeight = 4f; // Maximum arc height
-        public float tossCooldown = 1f; // Cooldown after tossing
+        public float tossDistance = 26f; // How far to throw (like throwing a ball)
+        public float tossHeight = 8f; // Maximum arc height
+        public float tossCooldown = 2f; // Cooldown after tossing
         public bool useGravityForToss = true; // Use physics gravity for natural arc
 
         [Header("Network Smoothing")]
