@@ -8,10 +8,10 @@ namespace UpWeGo
     {
         [Header("Movement Settings")]
         public float walkSpeed = 5f;
-        public float runSpeed = 10f;
+        public float runSpeed = 9f;
         public float crouchSpeed = 2f;
-        public float jumpForce = 8f;
-        public float gravity = 20f;
+        public float jumpForce = 7f;
+        public float gravity = 16f;
 
         [Header("Carry System")]
         public float carryRadius = 3f;
