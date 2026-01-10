@@ -4,10 +4,10 @@ public class PressurePlatform : MonoBehaviour
 {
     [Header("Platform Movement")]
     [Tooltip("How far down the platform will move when stepped on")]
-    public float platformMoveDistance = 0.5f;
+    public float platformMoveDistance = 2f;
     
     [Tooltip("Speed at which the platform moves down and up")]
-    public float platformSpeed = 2f;
+    public float platformSpeed = 1f;
     
     [Tooltip("Should the platform return to original position when player leaves?")]
     public bool returnWhenPlayerLeaves = true;
@@ -34,6 +34,13 @@ public class PressurePlatform : MonoBehaviour
     
     [Tooltip("Delay before platform resets after player leaves (prevents jitter)")]
     public float exitDebounceTime = 0.2f;
+
+    [Header("Audio Settings")]
+    [Tooltip("Audio source for playing sound effects (will auto-add if not assigned)")]
+    public AudioSource audioSource;
+    
+    [Tooltip("Sound effect to play when player steps on the platform")]
+    public AudioClip collisionSound;
     
     private Vector3 _platformStartPosition;
     private Vector3 _platformTargetPosition;
@@ -53,6 +60,17 @@ public class PressurePlatform : MonoBehaviour
         // Store the platform's starting position
         _platformStartPosition = transform.position;
         _platformTargetPosition = _platformStartPosition - new Vector3(0, platformMoveDistance, 0);
+        
+        // Setup audio source if not assigned
+        if (audioSource == null)
+        {
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null && collisionSound != null)
+            {
+                audioSource = gameObject.AddComponent<AudioSource>();
+                audioSource.playOnAwake = false;
+            }
+        }
         
         // Validate triggered object setup
         if (triggeredObject != null)
@@ -190,6 +208,13 @@ public class PressurePlatform : MonoBehaviour
             if (_playersOnPlatform == 1)
             {
                 ActivatePlatform();
+                
+                // Play collision sound
+                if (audioSource != null && collisionSound != null)
+                {
+                    audioSource.PlayOneShot(collisionSound);
+                }
+                
                 Debug.Log($"PressurePlatform '{gameObject.name}': Player stepped on platform (Count: {_playersOnPlatform})");
             }
         }

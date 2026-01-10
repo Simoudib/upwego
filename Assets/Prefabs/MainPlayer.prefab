@@ -282,11 +282,13 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  walkSpeed: 10
-  runSpeed: 18
+  walkSpeed: 8
+  runSpeed: 14
   crouchSpeed: 2
   jumpForce: 15
   gravity: 35
+  jumpBufferTime: 0.15
+  coyoteTime: 0.1
   carryRadius: 3
   carryKey: 101
   carryPosition: {fileID: 5807493541497281330}
