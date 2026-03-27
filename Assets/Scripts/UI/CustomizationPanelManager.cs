@@ -13,6 +13,8 @@ namespace UpWeGo
         [Header("UI References")]
         [SerializeField] private Slider bodyColorSlider;
         [SerializeField] private Slider pantsColorSlider;
+        [SerializeField] private Slider bodyBrightnessSlider;
+        [SerializeField] private Slider pantsBrightnessSlider;
         [SerializeField] private Button applyButton;
         [SerializeField] private Button backButton;
         
@@ -37,6 +39,8 @@ namespace UpWeGo
         private PlayerMaterialCustomizer previewCustomizer;
         private float currentBodyHue;
         private float currentPantsHue;
+        private float currentBodyBrightness;
+        private float currentPantsBrightness;
         
         void Awake()
         {
@@ -53,6 +57,12 @@ namespace UpWeGo
                 
             if (pantsColorSlider != null)
                 pantsColorSlider.onValueChanged.AddListener(OnPantsSliderChanged);
+
+            if (bodyBrightnessSlider != null)
+                bodyBrightnessSlider.onValueChanged.AddListener(OnBodyBrightnessChanged);
+                
+            if (pantsBrightnessSlider != null)
+                pantsBrightnessSlider.onValueChanged.AddListener(OnPantsBrightnessChanged);
         }
         
         void OnEnable()
@@ -81,8 +91,8 @@ namespace UpWeGo
             Color savedPantsColor = PlayerCustomizationData.GetPantsColor();
             
             // Convert to hue for sliders
-            currentBodyHue = PlayerCustomizationData.ColorToHue(savedBodyColor);
-            currentPantsHue = PlayerCustomizationData.ColorToHue(savedPantsColor);
+            PlayerCustomizationData.ColorToHueAndBrightness(savedBodyColor, out currentBodyHue, out currentBodyBrightness);
+            PlayerCustomizationData.ColorToHueAndBrightness(savedPantsColor, out currentPantsHue, out currentPantsBrightness);
             
             // Set slider values without triggering events
             if (bodyColorSlider != null)
@@ -94,13 +104,23 @@ namespace UpWeGo
             {
                 pantsColorSlider.SetValueWithoutNotify(currentPantsHue);
             }
+
+            if (bodyBrightnessSlider != null)
+            {
+                bodyBrightnessSlider.SetValueWithoutNotify(currentBodyBrightness);
+            }
+            
+            if (pantsBrightnessSlider != null)
+            {
+                pantsBrightnessSlider.SetValueWithoutNotify(currentPantsBrightness);
+            }
             
             // Spawn preview character
             SpawnPreviewCharacter();
             
             if (debugLogging)
             {
-                Debug.Log($"CustomizationPanel initialized - Body Hue: {currentBodyHue}, Pants Hue: {currentPantsHue}");
+                Debug.Log($"CustomizationPanel initialized - Body: H{currentBodyHue}/V{currentBodyBrightness}, Pants: H{currentPantsHue}/V{currentPantsBrightness}");
             }
         }
         
@@ -172,11 +192,11 @@ namespace UpWeGo
             if (rb != null)
                 rb.isKinematic = true;
                 
-            // Disable any other NetworkBehaviour components
+            // Disable any other NetworkBehaviour components (except customizer so preview works if it's already attached)
             var networkBehaviours = previewCharacter.GetComponents<Mirror.NetworkBehaviour>();
             foreach (var behaviour in networkBehaviours)
             {
-                if (behaviour != null)
+                if (behaviour != null && !(behaviour is PlayerMaterialCustomizer))
                     Destroy(behaviour);
             }
         }
@@ -189,8 +209,8 @@ namespace UpWeGo
             if (previewCustomizer == null) return;
             
             // Temporarily save current colors to apply to preview
-            Color bodyColor = PlayerCustomizationData.HueToColor(currentBodyHue);
-            Color pantsColor = PlayerCustomizationData.HueToColor(currentPantsHue);
+            Color bodyColor = PlayerCustomizationData.HueAndBrightnessToColor(currentBodyHue, currentBodyBrightness);
+            Color pantsColor = PlayerCustomizationData.HueAndBrightnessToColor(currentPantsHue, currentPantsBrightness);
             
             // Save temporarily
             Color originalBody = PlayerCustomizationData.GetBodyColor();
@@ -217,7 +237,7 @@ namespace UpWeGo
             
             if (debugLogging)
             {
-                Debug.Log($"Body hue changed: {hue} -> Color: {PlayerCustomizationData.HueToColor(hue)}");
+                Debug.Log($"Body hue changed: {hue} -> Color: {PlayerCustomizationData.HueAndBrightnessToColor(hue, currentBodyBrightness)}");
             }
         }
         
@@ -231,7 +251,29 @@ namespace UpWeGo
             
             if (debugLogging)
             {
-                Debug.Log($"Pants hue changed: {hue} -> Color: {PlayerCustomizationData.HueToColor(hue)}");
+                Debug.Log($"Pants hue changed: {hue} -> Color: {PlayerCustomizationData.HueAndBrightnessToColor(hue, currentPantsBrightness)}");
+            }
+        }
+
+        private void OnBodyBrightnessChanged(float brightness)
+        {
+            currentBodyBrightness = brightness;
+            UpdatePreviewColors();
+            
+            if (debugLogging)
+            {
+                Debug.Log($"Body brightness changed: {brightness} -> Color: {PlayerCustomizationData.HueAndBrightnessToColor(currentBodyHue, brightness)}");
+            }
+        }
+
+        private void OnPantsBrightnessChanged(float brightness)
+        {
+            currentPantsBrightness = brightness;
+            UpdatePreviewColors();
+            
+            if (debugLogging)
+            {
+                Debug.Log($"Pants brightness changed: {brightness} -> Color: {PlayerCustomizationData.HueAndBrightnessToColor(currentPantsHue, brightness)}");
             }
         }
         
@@ -241,8 +283,8 @@ namespace UpWeGo
         private void OnApplyClicked()
         {
             // Save the current colors
-            Color bodyColor = PlayerCustomizationData.HueToColor(currentBodyHue);
-            Color pantsColor = PlayerCustomizationData.HueToColor(currentPantsHue);
+            Color bodyColor = PlayerCustomizationData.HueAndBrightnessToColor(currentBodyHue, currentBodyBrightness);
+            Color pantsColor = PlayerCustomizationData.HueAndBrightnessToColor(currentPantsHue, currentPantsBrightness);
             
             PlayerCustomizationData.SaveBodyColor(bodyColor);
             PlayerCustomizationData.SavePantsColor(pantsColor);

@@ -1,12 +1,13 @@
 using UnityEngine;
+using Mirror;
 
 namespace UpWeGo
 {
     /// <summary>
-    /// Applies saved customization colors to the player character on spawn
-    /// Attach this to the MainPlayer prefab
+    /// Applies saved customization colors to the player character on spawn and syncs them over the network.
+    /// Attach this to the MainPlayer prefab.
     /// </summary>
-    public class PlayerMaterialCustomizer : MonoBehaviour
+    public class PlayerMaterialCustomizer : NetworkBehaviour
     {
         [Header("Material Configuration")]
         [Tooltip("Name of the Body material (must match exactly)")]
@@ -20,6 +21,12 @@ namespace UpWeGo
         
         [Header("Debug")]
         [SerializeField] private bool debugLogging = false;
+
+        [SyncVar(hook = nameof(OnBodyColorSynced))]
+        private Color syncedBodyColor = Color.clear;
+
+        [SyncVar(hook = nameof(OnPantsColorSynced))]
+        private Color syncedPantsColor = Color.clear;
         
         private SkinnedMeshRenderer[] skinnedMeshRenderers;
         
@@ -39,22 +46,74 @@ namespace UpWeGo
                 Debug.Log($"Found {skinnedMeshRenderers.Length} SkinnedMeshRenderers");
             }
             
-            // Apply saved colors
-            ApplyCustomColors();
+            // If we are NOT spawned on the network (e.g. preview character) or don't have an identity, apply local colors immediately
+            NetworkIdentity identity = GetComponent<NetworkIdentity>();
+            if (identity == null || (!identity.isServer && !identity.isClient))
+            {
+                ApplyCustomColors();
+            }
+        }
+
+        public override void OnStartLocalPlayer()
+        {
+            base.OnStartLocalPlayer();
+            
+            // Read local colors and tell server to update them for everyone
+            Color localBody = PlayerCustomizationData.GetBodyColor();
+            Color localPants = PlayerCustomizationData.GetPantsColor();
+            CmdSetColors(localBody, localPants);
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+            
+            // For late joiners or when first spawned (but not local player, or before RPC arrives)
+            // Apply whatever colors are already synced
+            if (syncedBodyColor != Color.clear && syncedPantsColor != Color.clear)
+            {
+                ApplyColorsDirectly(syncedBodyColor, syncedPantsColor);
+            }
+        }
+
+        [Command]
+        private void CmdSetColors(Color body, Color pants)
+        {
+            syncedBodyColor = body;
+            syncedPantsColor = pants;
+            // Note: Server also needs to apply them if running as host, but SyncVar hook handles this automatically on host.
+        }
+
+        private void OnBodyColorSynced(Color oldColor, Color newColor)
+        {
+            Color pants = syncedPantsColor != Color.clear ? syncedPantsColor : PlayerCustomizationData.GetPantsColor();
+            ApplyColorsDirectly(newColor, pants);
+        }
+
+        private void OnPantsColorSynced(Color oldColor, Color newColor)
+        {
+            Color body = syncedBodyColor != Color.clear ? syncedBodyColor : PlayerCustomizationData.GetBodyColor();
+            ApplyColorsDirectly(body, newColor);
         }
         
         /// <summary>
-        /// Apply saved customization colors to the character materials
+        /// Apply local saved customization colors (used mainly for preview character)
         /// </summary>
         public void ApplyCustomColors()
+        {
+            Color bodyColor = PlayerCustomizationData.GetBodyColor();
+            Color pantsColor = PlayerCustomizationData.GetPantsColor();
+            ApplyColorsDirectly(bodyColor, pantsColor);
+        }
+
+        /// <summary>
+        /// Apply specific colors to the character materials
+        /// </summary>
+        private void ApplyColorsDirectly(Color bodyColor, Color pantsColor)
         {
             if (skinnedMeshRenderers == null || skinnedMeshRenderers.Length == 0)
                 return;
                 
-            // Get saved colors
-            Color bodyColor = PlayerCustomizationData.GetBodyColor();
-            Color pantsColor = PlayerCustomizationData.GetPantsColor();
-            
             if (debugLogging)
             {
                 Debug.Log($"Applying colors - Body: {bodyColor}, Pants: {pantsColor}");
@@ -76,15 +135,12 @@ namespace UpWeGo
                 {
                     if (materials[i].name.Contains(bodyMaterialName))
                     {
-                        // If it's already an instance, just modify it
-                        // Otherwise create a new instance
                         if (!materials[i].name.Contains("Instance"))
                         {
                             materials[i] = new Material(materials[i]);
                             materialsChanged = true;
                         }
                         
-                        // Set the color directly on the material
                         materials[i].SetColor(colorPropertyName, bodyColor);
                         bodyFound = true;
                         
@@ -95,15 +151,12 @@ namespace UpWeGo
                     }
                     else if (materials[i].name.Contains(pantsMaterialName))
                     {
-                        // If it's already an instance, just modify it
-                        // Otherwise create a new instance
                         if (!materials[i].name.Contains("Instance"))
                         {
                             materials[i] = new Material(materials[i]);
                             materialsChanged = true;
                         }
                         
-                        // Set the color directly on the material
                         materials[i].SetColor(colorPropertyName, pantsColor);
                         pantsFound = true;
                         
@@ -121,7 +174,6 @@ namespace UpWeGo
                 }
             }
             
-            // Warnings if materials not found
             if (!bodyFound && debugLogging)
             {
                 Debug.LogWarning($"Body material '{bodyMaterialName}' not found in any renderer!");

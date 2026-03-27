@@ -84,22 +84,21 @@ namespace UpWeGo
         }
         
         /// <summary>
-        /// Convert hue (0-1) to full color
+        /// Convert hue and brightness (0-1) to full color
         /// Useful for color sliders
         /// </summary>
-        public static Color HueToColor(float hue)
+        public static Color HueAndBrightnessToColor(float hue, float brightness)
         {
-            return Color.HSVToRGB(hue, 0.8f, 0.9f); // 80% saturation, 90% brightness
+            return Color.HSVToRGB(hue, 0.8f, brightness); // 80% saturation, variable brightness
         }
         
         /// <summary>
-        /// Convert color to hue (0-1)
+        /// Convert color to hue and brightness (0-1)
         /// Useful for initializing sliders
         /// </summary>
-        public static float ColorToHue(Color color)
+        public static void ColorToHueAndBrightness(Color color, out float hue, out float brightness)
         {
-            Color.RGBToHSV(color, out float h, out float s, out float v);
-            return h;
+            Color.RGBToHSV(color, out hue, out float s, out brightness);
         }
     }
 }
