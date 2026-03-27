@@ -174,8 +174,8 @@ Material:
     - _RampScale: 1
     - _RampSmooth: 0.2
     - _RampSmoothAdd: 0.75
-    - _RampSmoothing: 0.847
-    - _RampThreshold: 0.459
+    - _RampSmoothing: 0.684
+    - _RampThreshold: 0.59
     - _RampType: 2
     - _ReceiveShadows: 1
     - _ReceiveShadowsOff: 1
@@ -196,7 +196,7 @@ Material:
     - _SpecularHighlights: 1
     - _SpecularMapType: 0
     - _SpecularRoughness: 0.169
-    - _SpecularToonSize: 0.025
+    - _SpecularToonSize: 0.01
     - _SpecularToonSmoothness: 0.755
     - _SpecularType: 1
     - _SrcBlend: 1
@@ -233,7 +233,7 @@ Material:
     - _OutlineColor: {r: 0.0057502636, g: 0.002647739, b: 0.033018857, a: 1}
     - _ReflectionColor: {r: 1, g: 1, b: 1, a: 1}
     - _RimColor: {r: 0.8, g: 0.8, b: 0.8, a: 0.5}
-    - _SColor: {r: 0.16948625, g: 0.011792451, b: 0.5, a: 1}
+    - _SColor: {r: 0.1585921, g: 0.0068084607, b: 0.4811321, a: 1}
     - _SketchColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
     - _SpecularColor: {r: 0.75, g: 0.75, b: 0.75, a: 1}
