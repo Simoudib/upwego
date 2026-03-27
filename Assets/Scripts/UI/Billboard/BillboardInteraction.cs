@@ -10,6 +10,13 @@ public class BillboardInteraction : MonoBehaviour
 
     void Update()
     {
+        // Close panel with Escape key if it's open
+        if (panelOpen && Input.GetKeyDown(KeyCode.Escape))
+        {
+            CloseFromButton();
+            return;
+        }
+        
         if (!playerInRange || panelOpen)
             return;
 

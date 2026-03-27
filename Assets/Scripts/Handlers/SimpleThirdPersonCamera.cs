@@ -6,6 +6,7 @@ namespace UpWeGo
     public class SimpleThirdPersonCamera : NetworkBehaviour
     {
         [Header("Camera Settings")]
+        [Tooltip("Default mouse sensitivity (overridden by SettingsManager)")]
         public float mouseSensitivity = 2f;
         public float distance = 5f;
         public float height = 2f;
@@ -19,6 +20,7 @@ namespace UpWeGo
         private Camera cam;
         private float horizontalAngle = 0f;
         private float verticalAngle = 0f;
+        private float currentSensitivity;
 
         void Start()
         {
@@ -38,15 +40,21 @@ namespace UpWeGo
             // Initialize angles
             horizontalAngle = target.eulerAngles.y;
             verticalAngle = 0f;
+
+            // Get sensitivity from SettingsManager
+            currentSensitivity = SettingsManager.Instance.MouseSensitivity;
+            
+            // Subscribe to sensitivity changes
+            SettingsManager.Instance.OnMouseSensitivityChanged += OnSensitivityChanged;
         }
 
         void LateUpdate()
         {
             if (!isLocalPlayer || target == null || cam == null) return;
 
-            // Get mouse input
-            float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
-            float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+            // Get mouse input with current sensitivity
+            float mouseX = Input.GetAxis("Mouse X") * currentSensitivity;
+            float mouseY = Input.GetAxis("Mouse Y") * currentSensitivity;
 
             // Update angles
             horizontalAngle += mouseX;
@@ -72,7 +80,18 @@ namespace UpWeGo
             {
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
+                
+                // Unsubscribe from events
+                if (SettingsManager.Instance != null)
+                {
+                    SettingsManager.Instance.OnMouseSensitivityChanged -= OnSensitivityChanged;
+                }
             }
+        }
+
+        private void OnSensitivityChanged(float newSensitivity)
+        {
+            currentSensitivity = newSensitivity;
         }
     }
 }
