@@ -514,11 +514,12 @@ namespace UpWeGo
                     // We're carrying someone - toss them (with cooldown check)
                     if (Time.time - lastTossTime >= tossCooldown)
                     {
-                        // Start throw animation
+                        // Start throw animation - clear carry FIRST to prevent both being true
                         if (animator != null)
                         {
+                            animator.SetBool("IsCarrying", false);
                             animator.SetBool("IsThrowing", true);
-                            Debug.Log("🎯 Starting throw animation!");
+                            Debug.Log("🎯 Starting throw animation! (IsCarrying=false, IsThrowing=true)");
                         }
                         
                         CmdTossPlayer();
@@ -1037,6 +1038,18 @@ namespace UpWeGo
         void UpdateAnimations(bool isMoving, bool isRunning, bool isGrounded, bool jumpPressed, bool crouching, bool carrying, bool beingCarried)
         {
             if (!useAnimations || animator == null) return;
+
+            // Safety: Force-clear stuck animation states if the logical state doesn't match
+            if (!carrying && animator.GetBool("IsCarrying"))
+            {
+                animator.SetBool("IsCarrying", false);
+                Debug.LogWarning("⚠️ Force-cleared stuck IsCarrying animation state");
+            }
+            if (!beingCarried && animator.GetBool("IsBeingCarried"))
+            {
+                animator.SetBool("IsBeingCarried", false);
+                Debug.LogWarning("⚠️ Force-cleared stuck IsBeingCarried animation state");
+            }
 
             // Check current throwing state
             bool isThrowing = animator.GetBool("IsThrowing");

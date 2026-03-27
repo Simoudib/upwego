@@ -30,10 +30,14 @@ namespace UpWeGo
         
         private SkinnedMeshRenderer[] skinnedMeshRenderers;
         
-        void Start()
+        void Awake()
         {
             // Find ALL SkinnedMeshRenderer components in children
             skinnedMeshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
+        }
+
+        void Start()
+        {
             
             if (skinnedMeshRenderers == null || skinnedMeshRenderers.Length == 0)
             {
