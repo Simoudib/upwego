@@ -297,6 +297,10 @@ MonoBehaviour:
   playerLayerMask:
     serializedVersion: 2
     m_Bits: 1
+  attractKey: 103
+  attractAreaSize: {x: 20, y: 2.8, z: 20}
+  attractSpeed: 15
+  showAttractArea: 1
   tossDistance: 18
   tossHeight: 8
   tossCooldown: 2
@@ -324,6 +328,7 @@ MonoBehaviour:
   playerDisplayName: 
   showCarryRadius: 1
   debugTossPhysics: 1
+  isAttracting: 0
 --- !u!114 &1723349816140568674
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -412,6 +417,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 554f4163fabc8e640a117c6fd558e543, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
   bodyMaterialName: Body
   pantsMaterialName: Pants
   colorPropertyName: _BaseColor

@@ -225,7 +225,7 @@ Material:
     - __dummy__: 0
     - __outline_gui_dummy__: 0
     m_Colors:
-    - _BaseColor: {r: 0.7830189, g: 0.5749, b: 0.36565503, a: 1}
+    - _BaseColor: {r: 0.78431374, g: 0.36470586, b: 0.3690369, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _HColor: {r: 1, g: 0.8937937, b: 0.8160377, a: 1}

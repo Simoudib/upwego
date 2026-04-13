@@ -27,8 +27,9 @@ namespace UpWeGo
 
         [Header("Attract System")]
         public KeyCode attractKey = KeyCode.G;
-        public float attractRadius = 15f;
+        public Vector3 attractAreaSize = new Vector3(30f, 30f, 30f);
         public float attractSpeed = 15f;
+        public bool showAttractArea = true;
 
         [Header("Toss Settings")]
         public float tossDistance = 26f; // How far to throw (like throwing a ball)
@@ -315,18 +316,25 @@ namespace UpWeGo
 
             // -- ATTRACT LOGIC --
             EnhancedPlayerMovement nearestAttractor = null;
-            float nearestDist = attractRadius;
+            float nearestDistSq = float.MaxValue;
             
             foreach (var identity in NetworkClient.spawned.Values)
             {
                 var player = identity.GetComponent<EnhancedPlayerMovement>();
                 if (player != null && player != this && player.isAttracting)
                 {
-                    float dist = Vector3.Distance(transform.position, player.transform.position);
-                    if (dist <= attractRadius && dist < nearestDist)
+                    // Check if inside square/box area
+                    Vector3 diff = transform.position - player.transform.position;
+                    if (Mathf.Abs(diff.x) <= player.attractAreaSize.x * 0.5f &&
+                        Mathf.Abs(diff.y) <= player.attractAreaSize.y * 0.5f &&
+                        Mathf.Abs(diff.z) <= player.attractAreaSize.z * 0.5f)
                     {
-                        nearestDist = dist;
-                        nearestAttractor = player;
+                        float distSq = diff.sqrMagnitude;
+                        if (distSq < nearestDistSq)
+                        {
+                            nearestDistSq = distSq;
+                            nearestAttractor = player;
+                        }
                     }
                 }
             }
@@ -1360,6 +1368,13 @@ namespace UpWeGo
 
                 // Draw toss trajectory preview
                 DrawTossTrajectory();
+            }
+
+            if (showAttractArea)
+            {
+                // Draw attract square area
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawWireCube(transform.position, attractAreaSize);
             }
         }
 
