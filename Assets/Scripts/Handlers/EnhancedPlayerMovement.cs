@@ -10,7 +10,7 @@ namespace UpWeGo
         public float walkSpeed = 5f;
         public float runSpeed = 9f;
         public float crouchSpeed = 2f;
-        public float jumpForce = 7f;
+        public float jumpForce = 8.5f;
         public float gravity = 16f;
         
         [Header("Jump Buffer Settings")]
@@ -24,6 +24,11 @@ namespace UpWeGo
         public KeyCode carryKey = KeyCode.E;
         public Transform carryPosition; // Where the carried player will be positioned
         public LayerMask playerLayerMask = 1; // Layer mask for detecting other players
+
+        [Header("Attract System")]
+        public KeyCode attractKey = KeyCode.G;
+        public float attractRadius = 15f;
+        public float attractSpeed = 15f;
 
         [Header("Toss Settings")]
         public float tossDistance = 26f; // How far to throw (like throwing a ball)
@@ -95,6 +100,8 @@ namespace UpWeGo
         [SyncVar] private uint carrierNetId = 0; // NetworkInstanceId of the player carrying us
         [SyncVar] private uint carriedPlayerNetId = 0; // NetworkInstanceId of the player we're carrying
 
+        [SyncVar] public bool isAttracting = false; // Is this player attracting others?
+
         // Network sync for position when being carried
         [SyncVar(hook = nameof(OnCarryPositionChanged))] private Vector3 networkCarryPosition;
         [SyncVar(hook = nameof(OnCarryRotationChanged))] private Quaternion networkCarryRotation;
@@ -119,6 +126,10 @@ namespace UpWeGo
         private NetworkTransformBase carriedPlayerNetworkTransform;
         private Rigidbody carriedPlayerRigidbody;
         private bool wasRigidbodyKinematic = false;
+
+        // Moving platform support
+        private MovingPlatform _activePlatform;
+        private RotatingPlatform _activeRotatingPlatform;
 
         void Start()
         {
@@ -244,6 +255,7 @@ namespace UpWeGo
 
             // Handle carry input
             HandleCarryInput();
+            HandleAttractInput();
 
             // Handle toss physics state first
             if (isBeingTossed)
@@ -273,6 +285,59 @@ namespace UpWeGo
             {
                 controller.enabled = true;
             }
+
+            // Apply moving platform delta FIRST so the player tracks the platform with zero lag.
+            // A small downward nudge keeps CharacterController grounded after the horizontal move,
+            // preventing isGrounded flicker that would break animations.
+            if (_activePlatform != null && _activePlatform.MoveDelta != Vector3.zero)
+            {
+                controller.Move(_activePlatform.MoveDelta + Vector3.down * 0.1f);
+            }
+            _activePlatform = null;
+
+            if (_activeRotatingPlatform != null)
+            {
+                // Calculate how much the platform shifted the player's position
+                Vector3 offset = transform.position - _activeRotatingPlatform.transform.position;
+                Vector3 rotatedOffset = _activeRotatingPlatform.CurrentRotationDelta * offset;
+                Vector3 moveDelta = rotatedOffset - offset;
+
+                if (moveDelta != Vector3.zero)
+                {
+                    controller.Move(moveDelta + Vector3.down * 0.1f);
+                }
+
+                // Rotate the player to match the platform's rotation
+                transform.rotation = _activeRotatingPlatform.CurrentRotationDelta * transform.rotation;
+
+                _activeRotatingPlatform = null;
+            }
+
+            // -- ATTRACT LOGIC --
+            EnhancedPlayerMovement nearestAttractor = null;
+            float nearestDist = attractRadius;
+            
+            foreach (var identity in NetworkClient.spawned.Values)
+            {
+                var player = identity.GetComponent<EnhancedPlayerMovement>();
+                if (player != null && player != this && player.isAttracting)
+                {
+                    float dist = Vector3.Distance(transform.position, player.transform.position);
+                    if (dist <= attractRadius && dist < nearestDist)
+                    {
+                        nearestDist = dist;
+                        nearestAttractor = player;
+                    }
+                }
+            }
+
+            bool isBeingPulled = nearestAttractor != null;
+            if (isBeingPulled)
+            {
+                Vector3 pullDir = (nearestAttractor.transform.position - transform.position).normalized;
+                controller.Move(pullDir * attractSpeed * Time.deltaTime);
+            }
+            // -- END ATTRACT LOGIC --
 
             // Get input
             float horizontal = Input.GetAxis("Horizontal");
@@ -412,7 +477,15 @@ namespace UpWeGo
             }
 
             // Apply gravity
-            velocity.y -= gravity * Time.deltaTime;
+            if (isBeingPulled && velocity.y < 0)
+            {
+                // Defy gravity when being pulled
+                velocity.y = 0;
+            }
+            else
+            {
+                velocity.y -= gravity * Time.deltaTime;
+            }
 
             // Apply vertical movement (gravity and jumping)
             controller.Move(new Vector3(0, velocity.y, 0) * Time.deltaTime);
@@ -423,6 +496,7 @@ namespace UpWeGo
                 UpdateCarriedPlayerPosition();
             }
         }
+
 
         void HandleBeingCarried()
         {
@@ -496,6 +570,24 @@ namespace UpWeGo
             {
                 Debug.Log($"🚀 Toss physics: velocity={velocity}, grounded={controller.isGrounded}");
             }
+        }
+
+        void HandleAttractInput()
+        {
+            if (Input.GetKeyDown(attractKey))
+            {
+                CmdSetAttracting(true);
+            }
+            else if (Input.GetKeyUp(attractKey))
+            {
+                CmdSetAttracting(false);
+            }
+        }
+
+        [Command]
+        void CmdSetAttracting(bool state)
+        {
+            isAttracting = state;
         }
 
         void HandleCarryInput()
@@ -1325,6 +1417,75 @@ namespace UpWeGo
                 if (isBeingCarried) return $"Being carried by {(carrier?.name ?? "Unknown")}";
                 if (carriedPlayerNetId != 0) return $"Carrying {(carriedPlayer?.name ?? "Unknown")}";
                 return "Not carrying anyone";
+            }
+        }
+        
+        /// <summary>
+        /// Applies an upward force for jumping (e.g., from trampolines)
+        /// </summary>
+        public void ApplyJumpForce(float force)
+        {
+            velocity.y = force;
+            jumpBufferCounter = 0f;
+            coyoteTimeCounter = 0f;
+            
+            if (animator != null && useAnimations)
+            {
+                animator.SetBool("IsJumping", true);
+                animator.SetBool("IsGrounded", false);
+            }
+            
+            Debug.Log($"🦘 Applied vertical jump force: {force}");
+        }
+
+        /// <summary>
+        /// Applies an external force to push the player away (e.g., from an obstacle)
+        /// </summary>
+        public void ApplyKnockback(Vector3 force, float duration = 1f)
+        {
+            if (!isLocalPlayer) return; // Only process physics for the local player instance
+            
+            velocity = force;
+            tossDuration = duration;
+            isBeingTossed = true;
+            tossStartTime = Time.time;
+            
+            if (animator != null && useAnimations)
+            {
+                animator.SetBool("IsJumping", true);
+                animator.SetBool("IsGrounded", false);
+            }
+            
+            Debug.Log($"💥 Knockback applied locally: {force}");
+        }
+
+        private void OnControllerColliderHit(ControllerColliderHit hit)
+        {
+            // CharacterController hardware collision detection
+            TrampolinePlatform trampoline = hit.gameObject.GetComponent<TrampolinePlatform>();
+            if (trampoline != null)
+            {
+                // Ensure the player is landing ON TOP of the trampoline
+                if (hit.normal.y > 0.5f)
+                {
+                    trampoline.BouncePlayer(this);
+                }
+            }
+
+            // Moving platform detection — only when standing on top
+            if (hit.moveDirection.y < -0.3f)
+            {
+                MovingPlatform platform = hit.collider.GetComponentInParent<MovingPlatform>();
+                if (platform != null)
+                {
+                    _activePlatform = platform;
+                }
+
+                RotatingPlatform rotPlatform = hit.collider.GetComponentInParent<RotatingPlatform>();
+                if (rotPlatform != null)
+                {
+                    _activeRotatingPlatform = rotPlatform;
+                }
             }
         }
         

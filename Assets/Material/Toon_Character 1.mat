@@ -174,8 +174,8 @@ Material:
     - _RampScale: 1
     - _RampSmooth: 0.2
     - _RampSmoothAdd: 0.75
-    - _RampSmoothing: 0.684
-    - _RampThreshold: 0.59
+    - _RampSmoothing: 0.9
+    - _RampThreshold: 0.55
     - _RampType: 2
     - _ReceiveShadows: 1
     - _ReceiveShadowsOff: 1
@@ -236,7 +236,7 @@ Material:
     - _SColor: {r: 0.1585921, g: 0.0068084607, b: 0.4811321, a: 1}
     - _SketchColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
-    - _SpecularColor: {r: 0.75, g: 0.75, b: 0.75, a: 1}
+    - _SpecularColor: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &1865198431141848645

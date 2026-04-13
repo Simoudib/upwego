@@ -1,5 +1,4 @@
 using UnityEngine;
-using System.Collections.Generic;
 
 public class MovingPlatform : MonoBehaviour
 {
@@ -12,9 +11,12 @@ public class MovingPlatform : MonoBehaviour
     private bool _waiting;
     private float _waitTimer;
     private int _direction = 1;
-    
-    private List<Transform> _passengers = new List<Transform>();
-    private Vector3 _lastPosition;
+
+    /// <summary>
+    /// The delta this platform moved this frame. Other scripts (like player movement)
+    /// can read this to move along with the platform.
+    /// </summary>
+    public Vector3 MoveDelta { get; private set; }
 
     void Start()
     {
@@ -26,13 +28,13 @@ public class MovingPlatform : MonoBehaviour
         }
         
         transform.position = waypoints[0].position;
-        _lastPosition = transform.position;
     }
 
     void Update()
     {
         if (_waiting)
         {
+            MoveDelta = Vector3.zero;
             _waitTimer += Time.deltaTime;
             if (_waitTimer >= waitTime)
             {
@@ -48,22 +50,14 @@ public class MovingPlatform : MonoBehaviour
     void MovePlatform()
     {
         Vector3 targetPos = waypoints[_currentIndex].position;
-        Vector3 newPos = Vector3.MoveTowards(transform.position, targetPos, speed * Time.deltaTime);
+        Vector3 previousPos = transform.position;
+        Vector3 newPos = Vector3.MoveTowards(previousPos, targetPos, speed * Time.deltaTime);
         
-        // Calculate how much we moved
-        Vector3 moveDelta = newPos - transform.position;
+        // Store the delta so passengers can read it
+        MoveDelta = newPos - previousPos;
         
         // Move the platform
         transform.position = newPos;
-        
-        // Move all passengers by the same amount (like carry system does)
-        foreach (Transform passenger in _passengers)
-        {
-            if (passenger != null)
-            {
-                passenger.position += moveDelta;
-            }
-        }
 
         // Check if reached waypoint
         if (Vector3.Distance(transform.position, targetPos) < 0.01f)
@@ -77,24 +71,6 @@ public class MovingPlatform : MonoBehaviour
                 _direction *= -1;
                 _currentIndex += _direction;
             }
-        }
-    }
-
-    void OnTriggerEnter(Collider other)
-    {
-        if (!_passengers.Contains(other.transform))
-        {
-            _passengers.Add(other.transform);
-            Debug.Log($"Platform: Added passenger {other.name}");
-        }
-    }
-
-    void OnTriggerExit(Collider other)
-    {
-        if (_passengers.Contains(other.transform))
-        {
-            _passengers.Remove(other.transform);
-            Debug.Log($"Platform: Removed passenger {other.name}");
         }
     }
 }
