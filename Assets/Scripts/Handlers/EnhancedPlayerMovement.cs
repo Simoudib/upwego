@@ -30,6 +30,13 @@ namespace UpWeGo
         public Vector3 attractAreaSize = new Vector3(30f, 30f, 30f);
         public float attractSpeed = 15f;
         public bool showAttractArea = true;
+        public float maxAttractPoints = 100f;
+        public float attractConsumeRate = 25f; // Consumes 25 points per second (4 seconds total duration)
+        public float attractRechargeDelay = 10f; // Seconds before recharging
+        
+        // Attract state
+        private float currentAttractPoints = 100f;
+        private float attractCooldownTimer = 0f;
 
         [Header("Toss Settings")]
         public float tossDistance = 26f; // How far to throw (like throwing a ball)
@@ -343,7 +350,39 @@ namespace UpWeGo
             if (isBeingPulled)
             {
                 Vector3 pullDir = (nearestAttractor.transform.position - transform.position).normalized;
-                controller.Move(pullDir * attractSpeed * Time.deltaTime);
+                
+                // --- Barrier Check ---
+                // Start raycast from the middle of the characters to avoid ground hits
+                Vector3 startPos = transform.position + Vector3.up * 1f;
+                Vector3 endPos = nearestAttractor.transform.position + Vector3.up * 1f;
+                float distance = Vector3.Distance(startPos, endPos);
+                
+                RaycastHit[] hits = Physics.RaycastAll(startPos, (endPos - startPos).normalized, distance);
+                bool hitBarrier = false;
+                
+                foreach(var hit in hits)
+                {
+                    if (hit.collider.isTrigger) continue; // Ignore triggers
+                    
+                    // Ignore ourselves
+                    if (hit.transform.root == this.transform.root) continue;
+                    
+                    // Ignore the attractor
+                    if (hit.transform.root == nearestAttractor.transform.root) continue;
+                    
+                    // If we hit any other non-trigger collider, it's a barrier
+                    hitBarrier = true;
+                    break;
+                }
+
+                if (!hitBarrier)
+                {
+                    controller.Move(pullDir * attractSpeed * Time.deltaTime);
+                }
+                else
+                {
+                    isBeingPulled = false; // Barrier blocking, so we aren't being pulled
+                }
             }
             // -- END ATTRACT LOGIC --
 
@@ -582,13 +621,44 @@ namespace UpWeGo
 
         void HandleAttractInput()
         {
-            if (Input.GetKeyDown(attractKey))
+            if (Input.GetKey(attractKey))
             {
-                CmdSetAttracting(true);
+                if (currentAttractPoints > 0)
+                {
+                    currentAttractPoints -= attractConsumeRate * Time.deltaTime;
+                    attractCooldownTimer = attractRechargeDelay; // Reset cooldown delay while actively using
+
+                    if (currentAttractPoints <= 0)
+                    {
+                        currentAttractPoints = 0;
+                        if (isAttracting) CmdSetAttracting(false);
+                    }
+                    else
+                    {
+                        if (!isAttracting) CmdSetAttracting(true);
+                    }
+                }
+                else
+                {
+                    // Case when key is held but points are 0
+                    if (isAttracting) CmdSetAttracting(false);
+                }
             }
-            else if (Input.GetKeyUp(attractKey))
+            else
             {
-                CmdSetAttracting(false);
+                // Key is released
+                if (isAttracting) CmdSetAttracting(false);
+
+                // Handle cooldown and recharge
+                if (attractCooldownTimer > 0)
+                {
+                    attractCooldownTimer -= Time.deltaTime;
+                }
+                else if (currentAttractPoints < maxAttractPoints)
+                {
+                    currentAttractPoints = maxAttractPoints; // Instantly recharge to max after the cooldown
+                    Debug.Log("Attract points fully recharged to " + maxAttractPoints);
+                }
             }
         }
 
@@ -1590,6 +1660,49 @@ namespace UpWeGo
             return null;
         }
         
+        void OnGUI()
+        {
+            if (!isLocalPlayer) return;
+
+            // Only show if we hold the button or if points are not maxed out
+            if (currentAttractPoints < maxAttractPoints || Input.GetKey(attractKey))
+            {
+                float width = 300f;
+                float height = 24f;
+                float x = (Screen.width - width) / 2f;
+                float y = Screen.height - Screen.height * 0.15f; // 15% from bottom
+
+                // Background
+                GUI.color = new Color(0, 0, 0, 0.6f);
+                GUI.DrawTexture(new Rect(x, y, width, height), Texture2D.whiteTexture);
+                
+                // Fill
+                float fillRatio = Mathf.Clamp01(currentAttractPoints / maxAttractPoints);
+                GUI.color = (attractCooldownTimer > 0 && currentAttractPoints <= 0) ? new Color(0.8f, 0.2f, 0.2f, 0.9f) : new Color(0.2f, 0.8f, 0.8f, 0.9f);
+                if (fillRatio > 0)
+                {
+                    GUI.DrawTexture(new Rect(x, y, width * fillRatio, height), Texture2D.whiteTexture);
+                }
+
+                // Text
+                GUI.color = Color.white;
+                
+                TextAnchor oldAlignment = GUI.skin.label.alignment;
+                GUI.skin.label.alignment = TextAnchor.MiddleCenter;
+                
+                string labelText = (attractCooldownTimer > 0) ? $"COOLDOWN: {attractCooldownTimer:F1}s" : $"ATTRACT POWER";
+                
+                // Draw shadow text for better visibility
+                GUI.color = Color.black;
+                GUI.Label(new Rect(x + 1, y + 1, width, height), labelText);
+                GUI.color = Color.white;
+                GUI.Label(new Rect(x, y, width, height), labelText);
+
+                // Restore
+                GUI.skin.label.alignment = oldAlignment;
+            }
+        }
+
         /// <summary>
         /// Sets up the name display component
         /// </summary>
