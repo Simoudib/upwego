@@ -109,6 +109,7 @@ namespace UpWeGo
         [SyncVar] private uint carriedPlayerNetId = 0; // NetworkInstanceId of the player we're carrying
 
         [SyncVar] public bool isAttracting = false; // Is this player attracting others?
+        private bool isCurrentlyAttractingValidTarget = false;
 
         // Network sync for position when being carried
         [SyncVar(hook = nameof(OnCarryPositionChanged))] private Vector3 networkCarryPosition;
@@ -621,7 +622,14 @@ namespace UpWeGo
 
         void HandleAttractInput()
         {
+            isCurrentlyAttractingValidTarget = false;
+
             if (Input.GetKey(attractKey))
+            {
+                isCurrentlyAttractingValidTarget = HasValidAttractTarget();
+            }
+
+            if (isCurrentlyAttractingValidTarget)
             {
                 if (currentAttractPoints > 0)
                 {
@@ -646,7 +654,7 @@ namespace UpWeGo
             }
             else
             {
-                // Key is released
+                // Key is released OR no valid target
                 if (isAttracting) CmdSetAttracting(false);
 
                 // Handle cooldown and recharge
@@ -660,6 +668,51 @@ namespace UpWeGo
                     Debug.Log("Attract points fully recharged to " + maxAttractPoints);
                 }
             }
+        }
+
+        bool HasValidAttractTarget()
+        {
+            foreach (var identity in NetworkClient.spawned.Values)
+            {
+                var player = identity.GetComponent<EnhancedPlayerMovement>();
+                if (player != null && player != this && !player.isBeingCarried && !player.isBeingTossed)
+                {
+                    Vector3 diff = player.transform.position - transform.position;
+                    if (Mathf.Abs(diff.x) <= attractAreaSize.x * 0.5f &&
+                        Mathf.Abs(diff.y) <= attractAreaSize.y * 0.5f &&
+                        Mathf.Abs(diff.z) <= attractAreaSize.z * 0.5f)
+                    {
+                        // Check barrier
+                        Vector3 startPos = transform.position + Vector3.up * 1f;
+                        Vector3 endPos = player.transform.position + Vector3.up * 1f;
+                        float distance = Vector3.Distance(startPos, endPos);
+                        
+                        RaycastHit[] hits = Physics.RaycastAll(startPos, (endPos - startPos).normalized, distance);
+                        bool hitBarrier = false;
+                        
+                        foreach (var hit in hits)
+                        {
+                            if (hit.collider.isTrigger) continue; // Ignore triggers
+                            
+                            // Ignore ourselves
+                            if (hit.transform.root == this.transform.root) continue;
+                            
+                            // Ignore the target
+                            if (hit.transform.root == player.transform.root) continue;
+                            
+                            // If we hit any other non-trigger collider, it's a barrier
+                            hitBarrier = true;
+                            break;
+                        }
+
+                        if (!hitBarrier)
+                        {
+                            return true; // Found a valid target
+                        }
+                    }
+                }
+            }
+            return false;
         }
 
         [Command]
@@ -1665,7 +1718,7 @@ namespace UpWeGo
             if (!isLocalPlayer) return;
 
             // Only show if we hold the button or if points are not maxed out
-            if (currentAttractPoints < maxAttractPoints || Input.GetKey(attractKey))
+            if (currentAttractPoints < maxAttractPoints || isCurrentlyAttractingValidTarget)
             {
                 float width = 300f;
                 float height = 24f;
