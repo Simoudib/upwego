@@ -10,7 +10,9 @@ namespace UpWeGo
         public float walkSpeed = 5f;
         public float runSpeed = 9f;
         public float crouchSpeed = 2f;
-        public float jumpForce = 8.5f;
+        [UnityEngine.Serialization.FormerlySerializedAs("jumpForce")]
+        public float jumpVerticalForce = 12f;
+        public float jumpHorizontalSpeed = 6f;
         public float gravity = 16f;
         
         [Header("Jump Buffer Settings")]
@@ -460,7 +462,7 @@ namespace UpWeGo
                 // Jump with buffering - triggers if jump was pressed recently
                 if (canJump)
                 {
-                    velocity.y = jumpForce;
+                    velocity.y = jumpVerticalForce;
                     jumpBufferCounter = 0f; // Consume the buffered jump
                     coyoteTimeCounter = 0f; // Reset coyote time
                     Debug.Log("🦘 Jump triggered!");
@@ -469,7 +471,7 @@ namespace UpWeGo
             else if (canJump && coyoteTimeCounter > 0f)
             {
                 // Coyote time jump - player just left the ground
-                velocity.y = jumpForce;
+                velocity.y = jumpVerticalForce;
                 jumpBufferCounter = 0f; // Consume the buffered jump
                 coyoteTimeCounter = 0f; // Reset coyote time
                 Debug.Log("🦘 Coyote time jump!");
@@ -483,7 +485,11 @@ namespace UpWeGo
             {
                 // Choose speed based on movement state (crouch overrides running)
                 float currentSpeed;
-                if (isCrouching)
+                if (!isGrounded)
+                {
+                    currentSpeed = jumpHorizontalSpeed; // Use horizontal jump speed in air
+                }
+                else if (isCrouching)
                 {
                     currentSpeed = crouchSpeed; // Crouching is slowest
                 }
@@ -515,7 +521,7 @@ namespace UpWeGo
             }
             
             // Update animations (check if jump was actually triggered)
-            bool jumpTriggered = (jumpBufferCounter <= 0f && velocity.y > jumpForce * 0.5f); // Jump just happened
+            bool jumpTriggered = (jumpBufferCounter <= 0f && velocity.y > jumpVerticalForce * 0.5f); // Jump just happened
             UpdateAnimations(isMoving, isRunning, isGrounded, jumpTriggered, isCrouching, isCarryingSomeone, isBeingCarried);
             
             // Sync animations across network

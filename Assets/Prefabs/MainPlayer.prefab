@@ -287,7 +287,8 @@ MonoBehaviour:
   walkSpeed: 8
   runSpeed: 14
   crouchSpeed: 2
-  jumpForce: 15
+  jumpVerticalForce: 17
+  jumpHorizontalSpeed: 8
   gravity: 35
   jumpBufferTime: 0.15
   coyoteTime: 0.1
@@ -298,9 +299,12 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1
   attractKey: 103
-  attractAreaSize: {x: 20, y: 2.8, z: 20}
+  attractAreaSize: {x: 30, y: 2.8, z: 30}
   attractSpeed: 15
   showAttractArea: 1
+  maxAttractPoints: 100
+  attractConsumeRate: 25
+  attractRechargeDelay: 7
   tossDistance: 18
   tossHeight: 8
   tossCooldown: 2
